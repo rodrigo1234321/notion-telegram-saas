@@ -1,5 +1,9 @@
 from fastapi import APIRouter
-from backend.api.endpoints import calendar, kanban, finance, habits, wiki
+
+try:
+    from backend.api.endpoints import calendar, kanban, finance, habits, wiki
+except ModuleNotFoundError:
+    from api.endpoints import calendar, kanban, finance, habits, wiki
 
 api_router = APIRouter(prefix="/api")
 

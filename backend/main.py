@@ -1,9 +1,27 @@
+import sys
+from pathlib import Path
+
+# Add both current dir and parent root dir to sys.path
+current_dir = Path(__file__).resolve().parent
+parent_dir = current_dir.parent
+if str(parent_dir) not in sys.path:
+    sys.path.insert(0, str(parent_dir))
+if str(current_dir) not in sys.path:
+    sys.path.insert(0, str(current_dir))
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from backend.config import settings
-from backend.api.router import api_router
-from backend.bot.telegram_bot import create_telegram_bot_app
-from backend.bot.scheduler import start_scheduler
+
+try:
+    from backend.config import settings
+    from backend.api.router import api_router
+    from backend.bot.telegram_bot import create_telegram_bot_app
+    from backend.bot.scheduler import start_scheduler
+except ModuleNotFoundError:
+    from config import settings
+    from api.router import api_router
+    from bot.telegram_bot import create_telegram_bot_app
+    from bot.scheduler import start_scheduler
 
 app = FastAPI(
     title="Notion-like Telegram SaaS API",

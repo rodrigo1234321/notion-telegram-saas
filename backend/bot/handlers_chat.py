@@ -1,6 +1,10 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from backend.ai.engine import ai_engine
+
+try:
+    from backend.ai.engine import ai_engine
+except ModuleNotFoundError:
+    from ai.engine import ai_engine
 
 async def handle_start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user

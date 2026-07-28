@@ -1,9 +1,14 @@
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from backend.config import settings
-from backend.bot.handlers_chat import handle_start_command, handle_text_message
+
+try:
+    from backend.config import settings
+    from backend.bot.handlers_chat import handle_start_command, handle_text_message
+except ModuleNotFoundError:
+    from config import settings
+    from bot.handlers_chat import handle_start_command, handle_text_message
 
 def create_telegram_bot_app() -> Application:
-    if not settings.TELEGRAM_BOT_TOKEN or "123456789" in settings.TELEGRAM_BOT_TOKEN:
+    if not settings.TELEGRAM_BOT_TOKEN or "123456789" in settings.TELEGRAM_BOT_TOKEN or "PLACEHOLDER" in settings.TELEGRAM_BOT_TOKEN:
         print("[Warning] Valid TELEGRAM_BOT_TOKEN not supplied. Bot handlers initialized in dry-run mode.")
         return None
 

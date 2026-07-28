@@ -1,8 +1,14 @@
 import os
 from typing import Dict, Any, List
-from backend.config import settings
-from backend.ai.prompts import SYSTEM_PROMPT
-from backend.ai.tools import TOOL_FUNCTIONS, add_calendar_event, create_kanban_task, record_transaction, log_habit, save_memory
+
+try:
+    from backend.config import settings
+    from backend.ai.prompts import SYSTEM_PROMPT
+    from backend.ai.tools import TOOL_FUNCTIONS, add_calendar_event, create_kanban_task, record_transaction, log_habit, save_memory
+except ModuleNotFoundError:
+    from config import settings
+    from ai.prompts import SYSTEM_PROMPT
+    from ai.tools import TOOL_FUNCTIONS, add_calendar_event, create_kanban_task, record_transaction, log_habit, save_memory
 
 class GeminiAIEngine:
     def __init__(self):
@@ -10,7 +16,7 @@ class GeminiAIEngine:
         self.client = None
         self.has_genai = False
 
-        if self.api_key and "YourGeminiApiKey" not in self.api_key:
+        if self.api_key and "GEMINI_API_KEY" not in self.api_key and "YourGeminiApiKey" not in self.api_key:
             try:
                 from google import genai
                 self.client = genai.Client(api_key=self.api_key)
@@ -20,10 +26,6 @@ class GeminiAIEngine:
                 self.has_genai = False
 
     async def process_message(self, telegram_id: int, user_message: str) -> str:
-        """
-        Processes text/voice messages using Gemini 1.5 Flash with Function Calling.
-        If real Gemini API Key is present, calls the model; otherwise uses intelligent fallback logic.
-        """
         if self.has_genai and self.client:
             try:
                 from google.genai import types

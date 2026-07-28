@@ -1,6 +1,10 @@
 import os
 from typing import Dict, Any, List, Optional
-from backend.config import settings
+
+try:
+    from backend.config import settings
+except ModuleNotFoundError:
+    from config import settings
 
 IN_MEMORY_DB: Dict[str, List[Dict[str, Any]]] = {
     "users": [],
@@ -8,7 +12,7 @@ IN_MEMORY_DB: Dict[str, List[Dict[str, Any]]] = {
     "calendar_events": [
         {
             "id": "11111111-1111-1111-1111-111111111111",
-            "telegram_id": 123456789,
+            "telegram_id": 5634360549,
             "title": "Reunión de Planificación SaaS",
             "description": "Revisar arquitectura con el equipo",
             "start_time": "2026-07-27T10:00:00Z",
@@ -20,64 +24,39 @@ IN_MEMORY_DB: Dict[str, List[Dict[str, Any]]] = {
     "kanban_tasks": [
         {
             "id": "22222222-2222-2222-2222-222222222222",
-            "telegram_id": 123456789,
+            "telegram_id": 5634360549,
             "title": "Diseñar Landing Page Mini App",
             "description": "Usar componentes de Tailwind y CSS variables de Telegram",
             "status": "todo",
             "priority": "high",
             "due_date": "2026-07-28T18:00:00Z"
-        },
-        {
-            "id": "33333333-3333-3333-3333-333333333333",
-            "telegram_id": 123456789,
-            "title": "Integrar Gemini Function Calling",
-            "description": "Implementar engine.py y tools.py",
-            "status": "in_progress",
-            "priority": "urgent",
-            "due_date": "2026-07-27T20:00:00Z"
         }
     ],
     "financial_records": [
         {
             "id": "44444444-4444-4444-4444-444444444444",
-            "telegram_id": 123456789,
+            "telegram_id": 5634360549,
             "type": "expense",
             "amount": 45.50,
             "category": "Alimentación",
             "description": "Almuerzo de trabajo",
             "record_date": "2026-07-27"
-        },
-        {
-            "id": "55555555-5555-5555-5555-555555555555",
-            "telegram_id": 123456789,
-            "type": "income",
-            "amount": 1200.00,
-            "category": "Freelance",
-            "description": "Pago de cliente",
-            "record_date": "2026-07-25"
         }
     ],
     "habits": [
         {
             "id": "66666666-6666-6666-6666-666666666666",
-            "telegram_id": 123456789,
+            "telegram_id": 5634360549,
             "title": "Meditar 10 minutos",
             "target_frequency": "daily",
             "streak_count": 5
-        },
-        {
-            "id": "77777777-7777-7777-7777-777777777777",
-            "telegram_id": 123456789,
-            "title": "Hacer ejercicio 45m",
-            "target_frequency": "daily",
-            "streak_count": 3
         }
     ],
     "habit_logs": [],
     "wiki_notes": [
         {
             "id": "88888888-8888-8888-8888-888888888888",
-            "telegram_id": 123456789,
+            "telegram_id": 5634360549,
             "title": "💡 Ideas para la Mini App Notion",
             "content_json": {"type": "doc", "content": [{"type": "paragraph", "text": "Sistema completo de productividad personal integrado en Telegram."}]},
             "tags": ["ideas", "saas", "notion"],
