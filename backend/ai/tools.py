@@ -29,7 +29,7 @@ async def add_calendar_event(
         "is_all_day": False
     }
     result = await db_service.add_event(event_data)
-    return {"status": "success", "event": result, "message": f"Evento '{title}' agendado con éxito."}
+    return {"status": "success", "event": result, "message": f"📅 Evento '{title}' agendado con éxito para {start_time}."}
 
 
 async def create_kanban_task(
@@ -50,7 +50,7 @@ async def create_kanban_task(
         "due_date": due_date
     }
     result = await db_service.add_task(task_data)
-    return {"status": "success", "task": result, "message": f"Tarea '{title}' agregada al Kanban."}
+    return {"status": "success", "task": result, "message": f"📋 Tarea '{title}' agregada al Kanban."}
 
 
 async def record_transaction(
@@ -70,7 +70,7 @@ async def record_transaction(
         "record_date": datetime.now().date().isoformat()
     }
     result = await db_service.add_finance(finance_data)
-    return {"status": "success", "record": result, "message": f"Registro financiero de ${amount} ({type}) guardado."}
+    return {"status": "success", "record": result, "message": f"💰 Registro financiero de ${amount} ({type}) guardado."}
 
 
 async def log_habit(
@@ -82,26 +82,37 @@ async def log_habit(
     if not completed_date:
         completed_date = datetime.now().date().isoformat()
     
-    # Find the habit by title
     habits = await db_service.get_user_habits(telegram_id)
     habit = next((h for h in habits if h.get("title", "").lower() == habit_title.lower()), None)
     
     if not habit:
-        return {"status": "error", "message": f"No se encontró el hábito '{habit_title}'."}
+        # Auto-create habit if missing
+        new_h = await db_service.add_habit({"telegram_id": telegram_id, "title": habit_title, "target_frequency": "daily", "streak_count": 1})
+        return {"status": "success", "habit": new_h, "message": f"🔥 Nuevo hábito '{habit_title}' creado y completado hoy!"}
     
     result = await db_service.log_habit_completion(habit["id"], telegram_id, completed_date)
-    return {"status": "success", "habit": result.get("habit"), "message": f"¡Hábito '{habit_title}' marcado como completado hoy! 🔥"}
+    return {"status": "success", "habit": result.get("habit"), "message": f"🔥 ¡Hábito '{habit_title}' marcado como completado hoy!"}
 
 
-async def save_memory(
+async def save_password_vault(
     telegram_id: int,
-    category: str,
-    fact_key: str,
-    fact_value: str
+    service_name: str,
+    password_value: str,
+    username: str = "",
+    category: str = "Personal",
+    notes: str = ""
 ) -> Dict[str, Any]:
-    """Save a memory fact for the user."""
-    # TODO: Implement ai_memories table in database
-    return {"status": "success", "fact": {fact_key: fact_value}, "message": f"Recordaré que {fact_key}: {fact_value}."}
+    """Save a password entry in the secure vault."""
+    pwd_data = {
+        "telegram_id": telegram_id,
+        "service_name": service_name,
+        "username": username,
+        "password_value": password_value,
+        "category": category,
+        "notes": notes
+    }
+    result = await db_service.add_password(pwd_data)
+    return {"status": "success", "password": result, "message": f"🔑 Contraseña para '{service_name}' guardada de forma segura en tu Bóveda."}
 
 
 # Tool function declarations for Gemini (JSON schema format)
@@ -114,8 +125,8 @@ TOOL_DECLARATIONS = [
             "properties": {
                 "title": {"type": "string", "description": "Título del evento (ej: 'Reunión con Juan', 'Cita médico')"},
                 "description": {"type": "string", "description": "Descripción adicional opcional"},
-                "start_time": {"type": "string", "description": "Fecha y hora de inicio en ISO 8601 UTC (ej: '2026-07-27T15:00:00Z')"},
-                "end_time": {"type": "string", "description": "Fecha y hora de fin en ISO 8601 UTC (ej: '2026-07-27T16:00:00Z')"},
+                "start_time": {"type": "string", "description": "Fecha y hora de inicio en ISO 8601 UTC (ej: '2026-07-28T15:00:00Z')"},
+                "end_time": {"type": "string", "description": "Fecha y hora de fin en ISO 8601 UTC (ej: '2026-07-28T16:00:00Z')"},
                 "category": {"type": "string", "description": "Categoría: trabajo, personal, medicamento, cita, evento, general", "enum": ["trabajo", "personal", "medicamento", "cita", "evento", "general"]}
             },
             "required": ["title", "start_time", "end_time"]
@@ -123,7 +134,7 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "create_kanban_task",
-        "description": "Crea una tarea en el tablero Kanban. Usa esto cuando el usuario pida añadir una tarea, pendiente, thing to do, etc.",
+        "description": "Crea una tarea en el tablero Kanban. Usa esto cuando el usuario pida añadir una tarea, pendiente, etc.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -131,7 +142,7 @@ TOOL_DECLARATIONS = [
                 "description": {"type": "string", "description": "Descripción opcional"},
                 "status": {"type": "string", "description": "Estado inicial: todo, in_progress, done", "enum": ["todo", "in_progress", "done"], "default": "todo"},
                 "priority": {"type": "string", "description": "Prioridad: low, medium, high", "enum": ["low", "medium", "high"], "default": "medium"},
-                "due_date": {"type": "string", "description": "Fecha límite opcional en ISO 8601 (ej: '2026-07-28T18:00:00Z')"}
+                "due_date": {"type": "string", "description": "Fecha límite opcional en ISO 8601"}
             },
             "required": ["title"]
         }
@@ -156,23 +167,25 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "habit_title": {"type": "string", "description": "Título exacto del hábito (ej: 'Meditar 10 minutos')"},
-                "completed_date": {"type": "string", "description": "Fecha en ISO 8601 (ej: '2026-07-27'), por defecto hoy"}
+                "habit_title": {"type": "string", "description": "Título del hábito (ej: 'Meditar 10 minutos')"},
+                "completed_date": {"type": "string", "description": "Fecha en ISO 8601"}
             },
             "required": ["habit_title"]
         }
     },
     {
-        "name": "save_memory",
-        "description": "Guarda un dato o preferencia del usuario en memoria a largo plazo.",
+        "name": "save_password_vault",
+        "description": "Guarda una contraseña o clave de acceso en la Bóveda Segura del usuario.",
         "parameters": {
             "type": "object",
             "properties": {
-                "category": {"type": "string", "description": "Categoría del dato"},
-                "fact_key": {"type": "string", "description": "Clave del dato (ej: 'comida_favorita')"},
-                "fact_value": {"type": "string", "description": "Valor del dato (ej: 'pizza')"}
+                "service_name": {"type": "string", "description": "Nombre de la aplicación o servicio (ej: 'Netflix', 'Wi-Fi Casa', 'Gmail')"},
+                "password_value": {"type": "string", "description": "La contraseña o clave a guardar"},
+                "username": {"type": "string", "description": "Usuario o email opcional"},
+                "category": {"type": "string", "description": "Categoría: Personal, Trabajo, Streaming, Finanzas, Redes"},
+                "notes": {"type": "string", "description": "Notas o PIN opcional"}
             },
-            "required": ["category", "fact_key", "fact_value"]
+            "required": ["service_name", "password_value"]
         }
     }
 ]
@@ -184,5 +197,5 @@ TOOL_FUNCTIONS_MAP = {
     "create_kanban_task": create_kanban_task,
     "record_transaction": record_transaction,
     "log_habit": log_habit,
-    "save_memory": save_memory,
+    "save_password_vault": save_password_vault,
 }
