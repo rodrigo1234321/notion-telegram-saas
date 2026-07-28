@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { Calendar as CalendarIcon, Clock, Plus, Tag, Trash2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Plus, Tag, Trash2, CalendarX } from 'lucide-react';
 import { triggerHaptic } from '@/lib/telegram';
 import { apiClient } from '@/lib/api_client';
 
@@ -15,14 +15,9 @@ interface CalendarEvent {
   category: string;
 }
 
-const initialEvents: CalendarEvent[] = [
-  { id: '1', title: 'Reunión de Planificación SaaS', time: '10:00 AM - 11:00 AM', category: 'Trabajo' },
-  { id: '2', title: 'Sesión de Vibe Coding Gemini', time: '02:00 PM - 04:00 PM', category: 'Desarrollo' },
-  { id: '3', title: 'Revisión de Métricas Financieras', time: '05:30 PM - 06:00 PM', category: 'Finanzas' },
-];
-
 export default function CalendarPage() {
-  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('');
@@ -31,7 +26,7 @@ export default function CalendarPage() {
   useEffect(() => {
     apiClient.get('/api/calendar/events')
       .then(res => {
-        if (res.data?.data && res.data.data.length > 0) {
+        if (res.data?.data) {
           setEvents(res.data.data.map((e: any) => ({
             id: e.id || String(Math.random()),
             title: e.title,
@@ -40,7 +35,8 @@ export default function CalendarPage() {
           })));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
   }, []);
 
   const handleCreate = (e: React.FormEvent) => {
@@ -87,30 +83,41 @@ export default function CalendarPage() {
         </Button>
       </div>
 
-      <div className="space-y-3">
-        {events.map((event) => (
-          <Card key={event.id} className="hover:border-sky-500/40 transition-all">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <h3 className="font-semibold text-slate-100 text-sm">{event.title}</h3>
-                <div className="flex items-center space-x-3 text-xs text-slate-400">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-sky-400" />
-                    {event.time}
-                  </span>
-                  <span className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded-full text-[10px] text-slate-300">
-                    <Tag className="w-3 h-3 text-sky-400" />
-                    {event.category}
-                  </span>
+      {events.length === 0 && !isLoading ? (
+        <Card className="text-center py-8 px-4 border-dashed border-slate-800">
+          <CalendarX className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+          <h3 className="text-sm font-semibold text-slate-300 mb-1">Sin eventos agendados</h3>
+          <p className="text-xs text-slate-500 mb-4">Toca el botón superior para crear tu primer evento.</p>
+          <Button onClick={() => setIsModalOpen(true)} variant="outline" className="mx-auto !text-xs">
+            + Agendar Evento
+          </Button>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {events.map((event) => (
+            <Card key={event.id} className="hover:border-sky-500/40 transition-all">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-slate-100 text-sm">{event.title}</h3>
+                  <div className="flex items-center space-x-3 text-xs text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-sky-400" />
+                      {event.time}
+                    </span>
+                    <span className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded-full text-[10px] text-slate-300">
+                      <Tag className="w-3 h-3 text-sky-400" />
+                      {event.category}
+                    </span>
+                  </div>
                 </div>
+                <button onClick={() => handleDelete(event.id)} className="text-slate-500 hover:text-red-400 p-1">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-              <button onClick={() => handleDelete(event.id)} className="text-slate-500 hover:text-red-400 p-1">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Agendar Nuevo Evento">
         <form onSubmit={handleCreate} className="space-y-3">

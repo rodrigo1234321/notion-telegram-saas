@@ -15,14 +15,8 @@ interface KanbanTask {
   priority: 'baja' | 'media' | 'alta' | 'urgente';
 }
 
-const initialTasks: KanbanTask[] = [
-  { id: '1', title: 'Diseñar Landing Page', status: 'todo', priority: 'alta' },
-  { id: '2', title: 'Integrar Gemini Function Calling', status: 'in_progress', priority: 'urgente' },
-  { id: '3', title: 'Configurar Supabase RLS', status: 'done', priority: 'media' },
-];
-
 export default function KanbanPage() {
-  const [tasks, setTasks] = useState<KanbanTask[]>(initialTasks);
+  const [tasks, setTasks] = useState<KanbanTask[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState<'baja' | 'media' | 'alta' | 'urgente'>('media');
@@ -30,7 +24,7 @@ export default function KanbanPage() {
   useEffect(() => {
     apiClient.get('/api/kanban/tasks')
       .then(res => {
-        if (res.data?.data && res.data.data.length > 0) {
+        if (res.data?.data) {
           setTasks(res.data.data.map((t: any) => ({
             id: t.id || String(Math.random()),
             title: t.title,
@@ -96,29 +90,33 @@ export default function KanbanPage() {
             <Clock className="w-3.5 h-3.5 text-amber-400" />
             <span>Pendiente ({tasks.filter(t => t.status === 'todo').length})</span>
           </h2>
-          {tasks.filter(t => t.status === 'todo').map((task) => (
-            <Card key={task.id} className="space-y-2">
-              <div className="flex justify-between items-start">
-                <p className="text-sm font-semibold text-slate-200">{task.title}</p>
-                <div className="flex items-center space-x-1">
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 font-medium capitalize">
-                    {task.priority}
-                  </span>
-                  <button onClick={() => handleDelete(task.id)} className="text-slate-500 hover:text-red-400 p-1">
-                    <Trash2 className="w-3.5 h-3.5" />
+          {tasks.filter(t => t.status === 'todo').length === 0 ? (
+            <p className="text-[11px] text-slate-500 italic px-1">Sin tareas pendientes.</p>
+          ) : (
+            tasks.filter(t => t.status === 'todo').map((task) => (
+              <Card key={task.id} className="space-y-2">
+                <div className="flex justify-between items-start">
+                  <p className="text-sm font-semibold text-slate-200">{task.title}</p>
+                  <div className="flex items-center space-x-1">
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 font-medium capitalize">
+                      {task.priority}
+                    </span>
+                    <button onClick={() => handleDelete(task.id)} className="text-slate-500 hover:text-red-400 p-1">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => moveTask(task.id, 'in_progress')}
+                    className="text-[10px] text-sky-400 hover:underline font-medium"
+                  >
+                    Mover a En Proceso →
                   </button>
                 </div>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => moveTask(task.id, 'in_progress')}
-                  className="text-[10px] text-sky-400 hover:underline font-medium"
-                >
-                  Mover a En Proceso →
-                </button>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            ))
+          )}
         </div>
 
         {/* Column: En Proceso */}
@@ -127,29 +125,33 @@ export default function KanbanPage() {
             <AlertCircle className="w-3.5 h-3.5 text-sky-400" />
             <span>En Proceso ({tasks.filter(t => t.status === 'in_progress').length})</span>
           </h2>
-          {tasks.filter(t => t.status === 'in_progress').map((task) => (
-            <Card key={task.id} className="space-y-2 border-sky-500/30">
-              <div className="flex justify-between items-start">
-                <p className="text-sm font-semibold text-slate-200">{task.title}</p>
-                <div className="flex items-center space-x-1">
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 font-medium capitalize">
-                    {task.priority}
-                  </span>
-                  <button onClick={() => handleDelete(task.id)} className="text-slate-500 hover:text-red-400 p-1">
-                    <Trash2 className="w-3.5 h-3.5" />
+          {tasks.filter(t => t.status === 'in_progress').length === 0 ? (
+            <p className="text-[11px] text-slate-500 italic px-1">Sin tareas en proceso.</p>
+          ) : (
+            tasks.filter(t => t.status === 'in_progress').map((task) => (
+              <Card key={task.id} className="space-y-2 border-sky-500/30">
+                <div className="flex justify-between items-start">
+                  <p className="text-sm font-semibold text-slate-200">{task.title}</p>
+                  <div className="flex items-center space-x-1">
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 font-medium capitalize">
+                      {task.priority}
+                    </span>
+                    <button onClick={() => handleDelete(task.id)} className="text-slate-500 hover:text-red-400 p-1">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => moveTask(task.id, 'done')}
+                    className="text-[10px] text-emerald-400 hover:underline font-medium"
+                  >
+                    Mover a Completado ✓
                   </button>
                 </div>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => moveTask(task.id, 'done')}
-                  className="text-[10px] text-emerald-400 hover:underline font-medium"
-                >
-                  Mover a Completado ✓
-                </button>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            ))
+          )}
         </div>
 
         {/* Column: Completado */}
@@ -158,14 +160,18 @@ export default function KanbanPage() {
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             <span>Completado ({tasks.filter(t => t.status === 'done').length})</span>
           </h2>
-          {tasks.filter(t => t.status === 'done').map((task) => (
-            <Card key={task.id} className="opacity-75 flex justify-between items-center">
-              <p className="text-sm line-through text-slate-400">{task.title}</p>
-              <button onClick={() => handleDelete(task.id)} className="text-slate-500 hover:text-red-400 p-1">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </Card>
-          ))}
+          {tasks.filter(t => t.status === 'done').length === 0 ? (
+            <p className="text-[11px] text-slate-500 italic px-1">Sin tareas completadas aún.</p>
+          ) : (
+            tasks.filter(t => t.status === 'done').map((task) => (
+              <Card key={task.id} className="opacity-75 flex justify-between items-center">
+                <p className="text-sm line-through text-slate-400">{task.title}</p>
+                <button onClick={() => handleDelete(task.id)} className="text-slate-500 hover:text-red-400 p-1">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </Card>
+            ))
+          )}
         </div>
       </div>
 

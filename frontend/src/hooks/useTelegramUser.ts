@@ -18,15 +18,15 @@ export function useTelegramUser() {
       } else {
         setUser({
           id: 5634360549,
-          first_name: 'Usuario Demo',
-          username: 'dev_user'
+          first_name: 'Usuario',
+          username: 'usuario'
         });
       }
     } else {
       setUser({
         id: 5634360549,
-        first_name: 'Usuario Demo',
-        username: 'dev_user'
+        first_name: 'Usuario',
+        username: 'usuario'
       });
     }
     setIsLoaded(true);
