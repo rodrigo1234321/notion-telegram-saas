@@ -42,7 +42,7 @@ app.include_router(api_router)
 @app.on_event("startup")
 async def on_startup():
     start_scheduler()
-    print(f"🚀 Backend service running on port {settings.PORT} [Environment: {settings.ENVIRONMENT}]")
+    print(f"Backend service running on port {settings.PORT} [Environment: {settings.ENVIRONMENT}]")
 
 @app.get("/")
 async def root():

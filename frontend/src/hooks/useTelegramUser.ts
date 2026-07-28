@@ -11,23 +11,11 @@ export function useTelegramUser() {
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
-      
+
       const tgUser = window.Telegram.WebApp.initDataUnsafe?.user;
       if (tgUser) {
         setUser(tgUser);
-      } else {
-        setUser({
-          id: 5634360549,
-          first_name: 'Usuario',
-          username: 'usuario'
-        });
       }
-    } else {
-      setUser({
-        id: 5634360549,
-        first_name: 'Usuario',
-        username: 'usuario'
-      });
     }
     setIsLoaded(true);
   }, []);

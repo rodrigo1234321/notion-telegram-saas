@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = "TELEGRAM_BOT_TOKEN_PLACEHOLDER"
     MI_TELEGRAM_ID: Optional[int] = None
+    DEV_TELEGRAM_ID: Optional[int] = None
     TELEGRAM_WEBHOOK_URL: str = "http://localhost:8000/bot/webhook"
     GEMINI_API_KEY: str = "GEMINI_API_KEY_PLACEHOLDER"
     SUPABASE_URL: str = "https://your-project.supabase.co"

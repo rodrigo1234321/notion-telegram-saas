@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS users (
     first_name VARCHAR(255),
     timezone VARCHAR(50) DEFAULT 'UTC',
     language_code VARCHAR(10) DEFAULT 'es',
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    city VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -34,6 +37,8 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     category VARCHAR(50) DEFAULT 'general',
     is_all_day BOOLEAN DEFAULT FALSE,
     google_event_id VARCHAR(255),
+    reminder_minutes_before INT DEFAULT NULL,
+    reminder_sent BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -105,6 +110,21 @@ ALTER TABLE financial_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE habits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE habit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wiki_notes ENABLE ROW LEVEL SECURITY;
+
+-- 8. RESEÑAS LOCALES
+CREATE TABLE IF NOT EXISTS local_reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+    place_name VARCHAR(255) NOT NULL,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    rating INT CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE local_reviews ENABLE ROW LEVEL SECURITY;
+CREATE POLICY service_role_all_reviews ON local_reviews FOR ALL USING (true);
 
 -- Allow service role full access
 CREATE POLICY service_role_all_users ON users FOR ALL USING (true);

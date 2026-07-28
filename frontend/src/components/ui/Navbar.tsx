@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Calendar, Trello, PieChart, CheckSquare, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Calendar, Trello, PieChart, CheckSquare, BookOpen, Settings, MapPin } from 'lucide-react';
 import { triggerHaptic } from '@/lib/telegram';
 
 const navItems = [
@@ -12,6 +12,8 @@ const navItems = [
   { name: 'Finanzas', href: '/finance', icon: PieChart },
   { name: 'Hábitos', href: '/habits', icon: CheckSquare },
   { name: 'Wiki', href: '/wiki', icon: BookOpen },
+  { name: 'Reseñas', href: '/reviews', icon: MapPin },
+  { name: 'Ajustes', href: '/settings', icon: Settings },
 ];
 
 export function Navbar() {

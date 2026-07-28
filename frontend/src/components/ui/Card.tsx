@@ -5,11 +5,17 @@ interface CardProps {
   className?: string;
   title?: string;
   icon?: React.ReactNode;
+  style?: React.CSSProperties;
+  onClick?: () => void;
 }
 
-export function Card({ children, className = '', title, icon }: CardProps) {
+export function Card({ children, className = '', title, icon, style, onClick }: CardProps) {
   return (
-    <div className={`bg-[var(--tg-theme-secondary-bg-color,#1e293b)] border border-slate-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md ${className}`}>
+    <div
+      style={style}
+      onClick={onClick}
+      className={`bg-[var(--tg-theme-secondary-bg-color,#1e293b)] border border-slate-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md ${className}`}
+    >
       {title && (
         <div className="flex items-center space-x-2 mb-3 border-b border-slate-800 pb-2">
           {icon && <span className="text-sky-400">{icon}</span>}
