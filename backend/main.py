@@ -1,6 +1,7 @@
 import sys
 import asyncio
 import logging
+import requests
 from pathlib import Path
 
 # Add both current dir and parent root dir to sys.path
@@ -44,6 +45,17 @@ app.add_middleware(
 
 app.include_router(api_router)
 
+def auto_set_webhook():
+    token = settings.TELEGRAM_BOT_TOKEN
+    webhook_url = settings.TELEGRAM_WEBHOOK_URL
+    if token and "PLACEHOLDER" not in token and webhook_url and "localhost" not in webhook_url:
+        try:
+            set_url = f"https://api.telegram.org/bot{token}/setWebhook?url={webhook_url}"
+            r = requests.get(set_url, timeout=5.0).json()
+            logger.info(f"Auto setWebhook status: {r}")
+        except Exception as e:
+            logger.warning(f"Failed to auto-set webhook: {e}")
+
 @app.on_event("startup")
 async def on_startup():
     start_scheduler()
@@ -51,15 +63,10 @@ async def on_startup():
     if bot_app:
         try:
             await bot_app.initialize()
-            await bot_app.start()
-            if bot_app.updater:
-                await bot_app.updater.start_polling()
-            else:
-                # Start polling manually if updater not started
-                asyncio.create_task(bot_app.updater.start_polling() if hasattr(bot_app, 'updater') and bot_app.updater else asyncio.sleep(0))
-            logger.info("Telegram Bot polling started successfully!")
+            auto_set_webhook()
+            logger.info("Telegram Bot Application initialized & webhook registered successfully!")
         except Exception as e:
-            logger.warning(f"Telegram Bot polling initialization notice: {e}")
+            logger.warning(f"Telegram Bot initialization notice: {e}")
     
     print(f"Backend service running on port {settings.PORT} [Environment: {settings.ENVIRONMENT}]")
 
