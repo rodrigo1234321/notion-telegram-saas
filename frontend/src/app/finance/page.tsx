@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { FinanceCharts } from '@/components/charts/FinanceCharts';
-import { PieChart, DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Wallet, Award, Percent } from 'lucide-react';
+import { PieChart, DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Wallet, Award, Percent, FolderPlus } from 'lucide-react';
 import { triggerHaptic } from '@/lib/telegram';
 import { apiClient } from '@/lib/api_client';
 
@@ -19,12 +19,29 @@ interface FinanceRecord {
 
 const LOCAL_STORAGE_KEY = 'saas_finance_records';
 
+const DEFAULT_CATEGORIES = [
+  'Alimentación',
+  'Servicios',
+  'Ocio',
+  'Transporte',
+  'Vivienda',
+  'Salud',
+  'Educación',
+  'Inversiones',
+  'Suscripciones',
+  'Freelance',
+  'Salario',
+  'Otros',
+  'CUSTOM_OPTION'
+];
+
 export default function FinancePage() {
   const [records, setRecords] = useState<FinanceRecord[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('Alimentación');
+  const [customCategory, setCustomCategory] = useState('');
   const [description, setDescription] = useState('');
 
   useEffect(() => {
@@ -81,11 +98,13 @@ export default function FinancePage() {
     if (isNaN(numAmount) || numAmount <= 0) return;
     triggerHaptic('heavy');
 
+    const finalCategory = category === 'CUSTOM_OPTION' ? (customCategory.trim() || 'Personalizada') : category;
+
     const newRecord: FinanceRecord = {
       id: Date.now().toString(),
       type,
       amount: numAmount,
-      category,
+      category: finalCategory,
       description
     };
 
@@ -94,12 +113,14 @@ export default function FinancePage() {
 
     setAmount('');
     setDescription('');
+    setCustomCategory('');
+    setCategory('Alimentación');
     setIsModalOpen(false);
 
     apiClient.post('/api/finance/records', {
       type,
       amount: numAmount,
-      category,
+      category: finalCategory,
       description
     }).catch(() => {});
   };
@@ -120,7 +141,7 @@ export default function FinancePage() {
             <PieChart className="w-5 h-5 text-emerald-400" />
             <span>Finanzas & Métricas</span>
           </h1>
-          <p className="text-xs text-slate-400">Análisis gráfico en tiempo real y estadísticas</p>
+          <p className="text-xs text-slate-400">Categorías personalizadas y análisis gráfico</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)} variant="primary" className="!py-1.5 !px-3 text-xs bg-emerald-600 hover:bg-emerald-500">
           <Plus className="w-4 h-4" />
@@ -230,6 +251,7 @@ export default function FinancePage() {
               Ingreso
             </button>
           </div>
+
           <div>
             <label className="text-xs text-slate-400 block mb-1">Monto ($)</label>
             <input
@@ -242,6 +264,7 @@ export default function FinancePage() {
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
             />
           </div>
+
           <div>
             <label className="text-xs text-slate-400 block mb-1">Categoría</label>
             <select
@@ -249,24 +272,42 @@ export default function FinancePage() {
               onChange={(e) => setCategory(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
             >
-              <option value="Alimentación">Alimentación</option>
-              <option value="Servicios">Servicios</option>
-              <option value="Ocio">Ocio</option>
-              <option value="Transporte">Transporte</option>
-              <option value="Freelance">Freelance</option>
-              <option value="Salario">Salario</option>
+              {DEFAULT_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c === 'CUSTOM_OPTION' ? '+ Crear Nueva Categoría...' : c}
+                </option>
+              ))}
             </select>
           </div>
+
+          {category === 'CUSTOM_OPTION' && (
+            <div className="p-3 bg-slate-900 rounded-xl border border-emerald-500/30 space-y-1">
+              <label className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+                <FolderPlus className="w-3.5 h-3.5" />
+                Nombre de tu Nueva Categoría
+              </label>
+              <input
+                type="text"
+                required
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+                placeholder="Ej: Cripto, Regalos, Mascotas..."
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          )}
+
           <div>
             <label className="text-xs text-slate-400 block mb-1">Descripción</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ej: Pago de servicio o trabajo"
+              placeholder="Ej: Pago de almuerzo o trabajo"
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
             />
           </div>
+
           <Button type="submit" variant="primary" className="w-full mt-2 bg-emerald-600 hover:bg-emerald-500">
             Guardar Transacción
           </Button>

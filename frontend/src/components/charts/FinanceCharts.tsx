@@ -14,15 +14,25 @@ interface FinanceChartsProps {
   records: FinanceRecord[];
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
+const PRESET_COLORS: Record<string, string> = {
   Alimentación: '#38bdf8', // sky-400
   Servicios: '#818cf8',    // indigo-400
   Ocio: '#f472b6',         // pink-400
   Transporte: '#34d399',   // emerald-400
+  Vivienda: '#f97316',     // orange-500
+  Salud: '#ef4444',        // red-500
+  Educación: '#a855f7',    // purple-500
+  Inversiones: '#10b981',  // emerald-500
+  Suscripciones: '#ec4899',// pink-500
   Freelance: '#fbbf24',    // amber-400
-  Salario: '#a78bfa',      // purple-400
-  General: '#94a3b8',      // slate-400
+  Salario: '#6366f1',      // indigo-500
+  Otros: '#94a3b8',        // slate-400
 };
+
+const DYNAMIC_PALETTE = [
+  '#38bdf8', '#34d399', '#f472b6', '#fbbf24', '#a855f7',
+   '#f97316', '#ef4444', '#818cf8', '#2dd4bf', '#e879f9'
+];
 
 export function FinanceCharts({ records }: FinanceChartsProps) {
   // 1. Calculate Expenses by Category
@@ -35,12 +45,15 @@ export function FinanceCharts({ records }: FinanceChartsProps) {
 
   const totalExpenseSum = Object.values(categoryMap).reduce((a, b) => a + b, 0);
 
-  const pieData = Object.keys(categoryMap).map(cat => ({
-    name: cat,
-    value: categoryMap[cat],
-    color: CATEGORY_COLORS[cat] || '#38bdf8',
-    percentage: totalExpenseSum > 0 ? ((categoryMap[cat] / totalExpenseSum) * 100).toFixed(1) : '0'
-  }));
+  const pieData = Object.keys(categoryMap).map((cat, idx) => {
+    const assignedColor = PRESET_COLORS[cat] || DYNAMIC_PALETTE[idx % DYNAMIC_PALETTE.length];
+    return {
+      name: cat,
+      value: categoryMap[cat],
+      color: assignedColor,
+      percentage: totalExpenseSum > 0 ? ((categoryMap[cat] / totalExpenseSum) * 100).toFixed(1) : '0'
+    };
+  });
 
   // 2. Calculate Weekly / Comparative Bar Chart (Ingresos vs Gastos)
   const totalIncome = records.filter(r => r.type === 'income').reduce((acc, r) => acc + r.amount, 0);
@@ -55,7 +68,7 @@ export function FinanceCharts({ records }: FinanceChartsProps) {
       {/* Category Pie / Donut Chart */}
       <div className="space-y-3">
         <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          Distribución de Gastos por Categoría
+          Distribución por Categorías
         </h4>
         
         {pieData.length === 0 ? (
@@ -92,8 +105,8 @@ export function FinanceCharts({ records }: FinanceChartsProps) {
               {pieData.map((item) => (
                 <div key={item.name} className="flex items-center justify-between p-2 rounded-xl bg-slate-900 border border-slate-800/80">
                   <div className="flex items-center space-x-2">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-xs font-medium text-slate-300">{item.name}</span>
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                    <span className="text-xs font-medium text-slate-300 truncate max-w-[90px]">{item.name}</span>
                   </div>
                   <span className="text-xs font-bold text-slate-100">{item.percentage}%</span>
                 </div>
