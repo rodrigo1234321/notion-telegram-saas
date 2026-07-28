@@ -52,22 +52,22 @@ def auto_set_webhook():
         try:
             set_url = f"https://api.telegram.org/bot{token}/setWebhook?url={webhook_url}"
             r = requests.get(set_url, timeout=5.0).json()
-            logger.info(f"Auto setWebhook status: {r}")
+            logger.info(f"[Webhook Setup] Status: {r}")
         except Exception as e:
-            logger.warning(f"Failed to auto-set webhook: {e}")
+            logger.warning(f"[Webhook Setup] Notice: {e}")
 
 @app.on_event("startup")
 async def on_startup():
-    start_scheduler()
     bot_app = create_telegram_bot_app()
     if bot_app:
         try:
             await bot_app.initialize()
             auto_set_webhook()
-            logger.info("Telegram Bot Application initialized & webhook registered successfully!")
+            logger.info("Telegram Bot Application initialized & webhook registered!")
         except Exception as e:
             logger.warning(f"Telegram Bot initialization notice: {e}")
-    
+
+    start_scheduler()
     print(f"Backend service running on port {settings.PORT} [Environment: {settings.ENVIRONMENT}]")
 
 @app.get("/")
@@ -87,10 +87,11 @@ async def telegram_webhook(request: Request):
 
     try:
         data = await request.json()
+        logger.info(f"[Webhook Payload] Received update data")
         update = Update.de_json(data, bot_app.bot)
         if update:
             await bot_app.process_update(update)
         return {"status": "ok"}
     except Exception as e:
-        logger.error(f"Error processing webhook update: {e}")
-        return {"status": "error", "detail": str(e)}
+        logger.error(f"[Webhook Error] {e}")
+        return {"status": "ok"}

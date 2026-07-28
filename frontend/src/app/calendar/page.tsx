@@ -133,6 +133,19 @@ export default function CalendarPage() {
 
   const quickTimes = ['09:00', '12:00', '15:00', '18:00', '20:00'];
 
+  // Filter events for currently selected day or display all if no match
+  const selectedDayEvents = events.filter(ev => {
+    if (!ev.start_time) return true;
+    const evDate = new Date(ev.start_time);
+    return (
+      evDate.getDate() === selectedDay &&
+      evDate.getMonth() === month &&
+      evDate.getFullYear() === year
+    );
+  });
+
+  const displayEvents = selectedDayEvents.length > 0 ? selectedDayEvents : events;
+
   return (
     <div className="space-y-4 animate-fadeIn">
       {/* Header */}
@@ -140,9 +153,9 @@ export default function CalendarPage() {
         <div>
           <h1 className="text-lg font-bold text-slate-100 flex items-center gap-2">
             <CalendarIcon className="w-5 h-5 text-sky-400" />
-            <span>Agenda & Recordatorios</span>
+            <span>Agenda & Notificaciones</span>
           </h1>
-          <p className="text-xs text-slate-400">Time-blocking exacto con notificaciones Telegram</p>
+          <p className="text-xs text-slate-400">Time-blocking exacto con avisos de Telegram</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)} variant="primary" className="!py-1.5 !px-3 text-xs">
           <Plus className="w-4 h-4" />
@@ -179,11 +192,17 @@ export default function CalendarPage() {
             const isSelected = dayNum === selectedDay;
             const isToday = dayNum === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
 
+            const hasEvents = events.some(ev => {
+              if (!ev.start_time) return false;
+              const d = new Date(ev.start_time);
+              return d.getDate() === dayNum && d.getMonth() === month && d.getFullYear() === year;
+            });
+
             return (
               <button
                 key={dayNum}
                 onClick={() => { triggerHaptic('light'); setSelectedDay(dayNum); }}
-                className={`h-8 rounded-xl flex items-center justify-center text-xs font-semibold transition-all ${
+                className={`h-8 rounded-xl relative flex items-center justify-center text-xs font-semibold transition-all ${
                   isSelected
                     ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20 font-bold scale-105'
                     : isToday
@@ -192,6 +211,9 @@ export default function CalendarPage() {
                 }`}
               >
                 {dayNum}
+                {hasEvents && !isSelected && (
+                  <span className="absolute bottom-1 w-1 h-1 rounded-full bg-sky-400" />
+                )}
               </button>
             );
           })}
@@ -200,53 +222,68 @@ export default function CalendarPage() {
 
       {/* Events for Selected Day */}
       <div className="space-y-3">
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">
-          Eventos para el {selectedDay} de {monthNames[month]}
-        </h2>
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Eventos ({selectedDay} de {monthNames[month]})
+          </h2>
+          <span className="text-[10px] text-sky-400 font-medium">
+            {displayEvents.length} Agendados
+          </span>
+        </div>
 
-        {events.length === 0 && !isLoading ? (
+        {displayEvents.length === 0 && !isLoading ? (
           <Card className="text-center py-6 px-4 border-dashed border-slate-800">
             <CalendarX className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-            <h3 className="text-xs font-semibold text-slate-300 mb-1">Sin eventos para esta fecha</h3>
+            <h3 className="text-xs font-semibold text-slate-300 mb-1">Sin eventos para el {selectedDay} de {monthNames[month]}</h3>
             <Button onClick={() => setIsModalOpen(true)} variant="outline" className="mx-auto !text-xs mt-2">
-              + Agendar Evento
+              + Agendar Evento para este día
             </Button>
           </Card>
         ) : (
-          events.map((event) => (
-            <Card key={event.id} className="hover:border-sky-500/40 transition-all">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-slate-100 text-sm">{event.title}</h3>
-                  <div className="flex items-center space-x-3 text-xs text-slate-400">
-                    <span className="flex items-center gap-1 font-semibold text-sky-400">
-                      <Clock className="w-3.5 h-3.5" />
-                      {event.time}
-                    </span>
-                    <span className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded-full text-[10px] text-slate-300">
-                      <Tag className="w-3 h-3 text-sky-400" />
-                      {event.category}
-                    </span>
+          displayEvents.map((event) => {
+            const evDate = event.start_time ? new Date(event.start_time) : null;
+            const dateStr = evDate ? `${evDate.getDate()} de ${monthNames[evDate.getMonth()]}` : `${selectedDay} de ${monthNames[month]}`;
+
+            return (
+              <Card key={event.id} className="hover:border-sky-500/40 transition-all">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-slate-100 text-sm">{event.title}</h3>
+                    <div className="flex items-center space-x-3 text-xs text-slate-400">
+                      <span className="flex items-center gap-1 font-semibold text-sky-400">
+                        <Clock className="w-3.5 h-3.5" />
+                        {dateStr} — {event.time}
+                      </span>
+                      <span className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded-full text-[10px] text-slate-300">
+                        <Tag className="w-3 h-3 text-sky-400" />
+                        {event.category}
+                      </span>
+                    </div>
+                    {event.reminder_minutes_before !== undefined && (
+                      <p className="text-[10px] text-amber-400 flex items-center gap-1 pt-0.5">
+                        <Bell className="w-3 h-3 fill-amber-400" />
+                        Recordatorio activado: {event.reminder_minutes_before === 0 ? 'A la hora exacta' : `${event.reminder_minutes_before} min antes`}
+                      </p>
+                    )}
                   </div>
-                  {event.reminder_minutes_before !== undefined && (
-                    <p className="text-[10px] text-amber-400 flex items-center gap-1">
-                      <Bell className="w-3 h-3 fill-amber-400" />
-                      Recordatorio: {event.reminder_minutes_before === 0 ? 'Exacto a la hora' : `${event.reminder_minutes_before} min antes`}
-                    </p>
-                  )}
+                  <button onClick={() => handleDelete(event.id)} className="text-slate-500 hover:text-red-400 p-1">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-                <button onClick={() => handleDelete(event.id)} className="text-slate-500 hover:text-red-400 p-1">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </Card>
-          ))
+              </Card>
+            );
+          })
         )}
       </div>
 
       {/* Modal: Agendar Nuevo Evento */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Agendar Evento (${selectedDay} de ${monthNames[month]})`}>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Agendar Evento para el ${selectedDay} de ${monthNames[month]}`}>
         <form onSubmit={handleCreate} className="space-y-4">
+          <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-xs text-slate-300 flex items-center justify-between">
+            <span>📅 Fecha seleccionada:</span>
+            <strong className="text-sky-400">{selectedDay} de {monthNames[month]} {year}</strong>
+          </div>
+
           <div>
             <label className="text-xs text-slate-400 block mb-1">Título del Evento</label>
             <input
@@ -254,7 +291,7 @@ export default function CalendarPage() {
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ej: Reunión o Medicamento"
+              placeholder="Ej: Reunión de trabajo, Cita médica"
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500"
             />
           </div>
