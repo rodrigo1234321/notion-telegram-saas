@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { FinanceCharts } from '@/components/charts/FinanceCharts';
-import { PieChart, DollarSign, TrendingUp, TrendingDown, Plus, Trash2 } from 'lucide-react';
+import { PieChart, DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Wallet, Award, Percent } from 'lucide-react';
 import { triggerHaptic } from '@/lib/telegram';
 import { apiClient } from '@/lib/api_client';
 
@@ -59,8 +59,21 @@ export default function FinancePage() {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
   };
 
+  // Advanced Financial Calculations
   const totalIncome = records.filter(r => r.type === 'income').reduce((acc, r) => acc + r.amount, 0);
   const totalExpense = records.filter(r => r.type === 'expense').reduce((acc, r) => acc + r.amount, 0);
+  const netBalance = totalIncome - totalExpense;
+
+  const savingsRate = totalIncome > 0
+    ? Math.max(0, ((netBalance / totalIncome) * 100)).toFixed(1)
+    : '0';
+
+  // Find top expense category
+  const expenseMap: Record<string, number> = {};
+  records.filter(r => r.type === 'expense').forEach(r => {
+    expenseMap[r.category] = (expenseMap[r.category] || 0) + r.amount;
+  });
+  const topExpenseCategory = Object.keys(expenseMap).reduce((a, b) => expenseMap[a] > expenseMap[b] ? a : b, 'Ninguna');
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,13 +113,14 @@ export default function FinancePage() {
 
   return (
     <div className="space-y-4 animate-fadeIn">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-slate-100 flex items-center gap-2">
             <PieChart className="w-5 h-5 text-emerald-400" />
             <span>Finanzas & Métricas</span>
           </h1>
-          <p className="text-xs text-slate-400">Control presupuestario persistente</p>
+          <p className="text-xs text-slate-400">Análisis gráfico en tiempo real y estadísticas</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)} variant="primary" className="!py-1.5 !px-3 text-xs bg-emerald-600 hover:bg-emerald-500">
           <Plus className="w-4 h-4" />
@@ -114,7 +128,7 @@ export default function FinancePage() {
         </Button>
       </div>
 
-      {/* Financial Summary Cards */}
+      {/* Main KPI Summary Cards */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-3 bg-emerald-500/10 border-emerald-500/20">
           <div className="flex items-center space-x-2 text-emerald-400 mb-1">
@@ -133,9 +147,40 @@ export default function FinancePage() {
         </Card>
       </div>
 
-      {/* Visual Analytics */}
-      <Card title="Análisis Gráfico" icon={<DollarSign className="w-4 h-4" />}>
-        <FinanceCharts />
+      {/* Advanced Statistics Grid */}
+      <div className="grid grid-cols-3 gap-2">
+        <Card className="p-2.5 text-center space-y-0.5 border-slate-800">
+          <div className="flex justify-center text-sky-400 mb-0.5">
+            <Wallet className="w-4 h-4" />
+          </div>
+          <p className="text-[9px] uppercase font-semibold text-slate-400">Balance Neto</p>
+          <p className={`text-xs font-extrabold ${netBalance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            ${netBalance.toFixed(2)}
+          </p>
+        </Card>
+
+        <Card className="p-2.5 text-center space-y-0.5 border-slate-800">
+          <div className="flex justify-center text-amber-400 mb-0.5">
+            <Percent className="w-4 h-4" />
+          </div>
+          <p className="text-[9px] uppercase font-semibold text-slate-400">Tasa Ahorro</p>
+          <p className="text-xs font-extrabold text-amber-400">{savingsRate}%</p>
+        </Card>
+
+        <Card className="p-2.5 text-center space-y-0.5 border-slate-800">
+          <div className="flex justify-center text-purple-400 mb-0.5">
+            <Award className="w-4 h-4" />
+          </div>
+          <p className="text-[9px] uppercase font-semibold text-slate-400">Mayor Gasto</p>
+          <p className="text-[11px] font-extrabold text-purple-300 truncate">
+            {records.filter(r => r.type === 'expense').length > 0 ? topExpenseCategory : 'N/A'}
+          </p>
+        </Card>
+      </div>
+
+      {/* Dynamic Visual Analytics */}
+      <Card title="Análisis Gráfico Dinámico" icon={<DollarSign className="w-4 h-4 text-emerald-400" />}>
+        <FinanceCharts records={records} />
       </Card>
 
       {/* Recent Transactions List */}
@@ -166,6 +211,7 @@ export default function FinancePage() {
         )}
       </div>
 
+      {/* Modal: Nuevo Registro */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Nuevo Registro Financiero">
         <form onSubmit={handleCreate} className="space-y-3">
           <div className="flex gap-2 p-1 bg-slate-900 rounded-xl">
@@ -217,7 +263,7 @@ export default function FinancePage() {
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ej: Pago de almuerzo"
+              placeholder="Ej: Pago de servicio o trabajo"
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
             />
           </div>
