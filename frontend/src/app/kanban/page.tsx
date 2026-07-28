@@ -15,35 +15,59 @@ interface KanbanTask {
   priority: 'baja' | 'media' | 'alta' | 'urgente';
 }
 
+const LOCAL_STORAGE_KEY = 'saas_kanban_tasks';
+
 export default function KanbanPage() {
   const [tasks, setTasks] = useState<KanbanTask[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState<'baja' | 'media' | 'alta' | 'urgente'>('media');
 
   useEffect(() => {
+    // 1. Instant local memory load
+    const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (cached) {
+      try {
+        setTasks(JSON.parse(cached));
+      } catch {}
+    }
+
+    // 2. Sync with API
     apiClient.get('/api/kanban/tasks')
       .then(res => {
-        if (res.data?.data) {
-          setTasks(res.data.data.map((t: any) => ({
+        if (res.data?.data && res.data.data.length > 0) {
+          const apiTasks = res.data.data.map((t: any) => ({
             id: t.id || String(Math.random()),
             title: t.title,
             status: t.status || 'todo',
             priority: t.priority || 'media'
-          })));
+          }));
+          setTasks(apiTasks);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(apiTasks));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
   }, []);
+
+  const savePersistent = (newList: KanbanTask[]) => {
+    setTasks(newList);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
+  };
 
   const moveTask = (id: string, newStatus: 'todo' | 'in_progress' | 'done') => {
     triggerHaptic('medium');
-    setTasks(tasks.map(t => t.id === id ? { ...t, status: newStatus } : t));
+    const updated = tasks.map(t => t.id === id ? { ...t, status: newStatus } : t);
+    savePersistent(updated);
+    apiClient.put(`/api/kanban/tasks/${id}`, { status: newStatus }).catch(() => {});
   };
 
   const handleDelete = (id: string) => {
     triggerHaptic('rigid');
-    setTasks(tasks.filter(t => t.id !== id));
+    const updated = tasks.filter(t => t.id !== id);
+    savePersistent(updated);
+    apiClient.delete(`/api/kanban/tasks/${id}`).catch(() => {});
   };
 
   const handleCreate = (e: React.FormEvent) => {
@@ -56,7 +80,10 @@ export default function KanbanPage() {
       status: 'todo',
       priority
     };
-    setTasks([newTask, ...tasks]);
+
+    const updated = [newTask, ...tasks];
+    savePersistent(updated);
+
     setTitle('');
     setIsModalOpen(false);
 
@@ -68,14 +95,14 @@ export default function KanbanPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fadeIn">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-slate-100 flex items-center gap-2">
             <Trello className="w-5 h-5 text-indigo-400" />
             <span>Tablero Kanban</span>
           </h1>
-          <p className="text-xs text-slate-400">Organiza tus proyectos y pendientes</p>
+          <p className="text-xs text-slate-400">Organiza tus proyectos con memoria persistente</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)} variant="primary" className="!py-1.5 !px-3 text-xs">
           <Plus className="w-4 h-4" />

@@ -17,14 +17,10 @@ interface FinanceRecord {
   description: string;
 }
 
-const initialRecords: FinanceRecord[] = [
-  { id: '1', type: 'income', amount: 1200.00, category: 'Freelance', description: 'Pago de proyecto Notion' },
-  { id: '2', type: 'expense', amount: 45.50, category: 'Alimentación', description: 'Almuerzo de trabajo' },
-  { id: '3', type: 'expense', amount: 15.00, category: 'Servicios', description: 'Suscripción API' },
-];
+const LOCAL_STORAGE_KEY = 'saas_finance_records';
 
 export default function FinancePage() {
-  const [records, setRecords] = useState<FinanceRecord[]>(initialRecords);
+  const [records, setRecords] = useState<FinanceRecord[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState('');
@@ -32,20 +28,36 @@ export default function FinancePage() {
   const [description, setDescription] = useState('');
 
   useEffect(() => {
+    // 1. Instant local memory load
+    const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (cached) {
+      try {
+        setRecords(JSON.parse(cached));
+      } catch {}
+    }
+
+    // 2. Sync with API
     apiClient.get('/api/finance/records')
       .then(res => {
         if (res.data?.data && res.data.data.length > 0) {
-          setRecords(res.data.data.map((r: any) => ({
+          const apiRecords = res.data.data.map((r: any) => ({
             id: r.id || String(Math.random()),
             type: r.type || 'expense',
             amount: Number(r.amount) || 0,
             category: r.category || 'General',
             description: r.description || ''
-          })));
+          }));
+          setRecords(apiRecords);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(apiRecords));
         }
       })
       .catch(() => {});
   }, []);
+
+  const savePersistent = (newList: FinanceRecord[]) => {
+    setRecords(newList);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
+  };
 
   const totalIncome = records.filter(r => r.type === 'income').reduce((acc, r) => acc + r.amount, 0);
   const totalExpense = records.filter(r => r.type === 'expense').reduce((acc, r) => acc + r.amount, 0);
@@ -55,6 +67,7 @@ export default function FinancePage() {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) return;
     triggerHaptic('heavy');
+
     const newRecord: FinanceRecord = {
       id: Date.now().toString(),
       type,
@@ -62,7 +75,10 @@ export default function FinancePage() {
       category,
       description
     };
-    setRecords([newRecord, ...records]);
+
+    const updated = [newRecord, ...records];
+    savePersistent(updated);
+
     setAmount('');
     setDescription('');
     setIsModalOpen(false);
@@ -77,18 +93,20 @@ export default function FinancePage() {
 
   const handleDelete = (id: string) => {
     triggerHaptic('rigid');
-    setRecords(records.filter(r => r.id !== id));
+    const updated = records.filter(r => r.id !== id);
+    savePersistent(updated);
+    apiClient.delete(`/api/finance/records/${id}`).catch(() => {});
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fadeIn">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-slate-100 flex items-center gap-2">
             <PieChart className="w-5 h-5 text-emerald-400" />
             <span>Finanzas & Métricas</span>
           </h1>
-          <p className="text-xs text-slate-400">Control presupuestario e historial</p>
+          <p className="text-xs text-slate-400">Control presupuestario persistente</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)} variant="primary" className="!py-1.5 !px-3 text-xs bg-emerald-600 hover:bg-emerald-500">
           <Plus className="w-4 h-4" />
@@ -123,25 +141,29 @@ export default function FinancePage() {
       {/* Recent Transactions List */}
       <div className="space-y-2">
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Últimos Movimientos</h3>
-        {records.map((rec) => (
-          <Card key={rec.id} className="flex items-center justify-between p-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center space-x-2">
-                <span className={`w-2 h-2 rounded-full ${rec.type === 'income' ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                <p className="text-xs font-semibold text-slate-200">{rec.description || rec.category}</p>
+        {records.length === 0 ? (
+          <p className="text-xs text-slate-500 italic px-1">Sin registros financieros guardados.</p>
+        ) : (
+          records.map((rec) => (
+            <Card key={rec.id} className="flex items-center justify-between p-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center space-x-2">
+                  <span className={`w-2 h-2 rounded-full ${rec.type === 'income' ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                  <p className="text-xs font-semibold text-slate-200">{rec.description || rec.category}</p>
+                </div>
+                <p className="text-[10px] text-slate-400 pl-4">{rec.category}</p>
               </div>
-              <p className="text-[10px] text-slate-400 pl-4">{rec.category}</p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className={`text-xs font-bold ${rec.type === 'income' ? 'text-emerald-400' : 'text-red-400'}`}>
-                {rec.type === 'income' ? '+' : '-'}${rec.amount.toFixed(2)}
-              </span>
-              <button onClick={() => handleDelete(rec.id)} className="text-slate-500 hover:text-red-400 p-1">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </Card>
-        ))}
+              <div className="flex items-center space-x-2">
+                <span className={`text-xs font-bold ${rec.type === 'income' ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {rec.type === 'income' ? '+' : '-'}${rec.amount.toFixed(2)}
+                </span>
+                <button onClick={() => handleDelete(rec.id)} className="text-slate-500 hover:text-red-400 p-1">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </Card>
+          ))
+        )}
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Nuevo Registro Financiero">

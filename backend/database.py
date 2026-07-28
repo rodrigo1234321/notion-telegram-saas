@@ -20,74 +20,13 @@ IN_MEMORY_DB: Dict[str, List[Dict[str, Any]]] = {
         }
     ],
     "ai_memories": [],
-    "calendar_events": [
-        {
-            "id": "11111111-1111-1111-1111-111111111111",
-            "telegram_id": _DEV_ID,
-            "title": "Reunión de Planificación SaaS",
-            "description": "Revisar arquitectura con el equipo",
-            "start_time": "2026-07-28T10:00:00Z",
-            "end_time": "2026-07-28T11:00:00Z",
-            "category": "trabajo",
-            "is_all_day": False,
-            "reminder_minutes_before": 15,
-            "reminder_sent": False
-        }
-    ],
-    "kanban_tasks": [
-        {
-            "id": "22222222-2222-2222-2222-222222222222",
-            "telegram_id": _DEV_ID,
-            "title": "Diseñar Landing Page Mini App",
-            "description": "Usar componentes de Tailwind y CSS variables de Telegram",
-            "status": "todo",
-            "priority": "high",
-            "due_date": "2026-07-28T18:00:00Z"
-        }
-    ],
-    "financial_records": [
-        {
-            "id": "44444444-4444-4444-4444-444444444444",
-            "telegram_id": _DEV_ID,
-            "type": "expense",
-            "amount": 45.50,
-            "category": "Alimentación",
-            "description": "Almuerzo de trabajo",
-            "record_date": "2026-07-27"
-        }
-    ],
-    "habits": [
-        {
-            "id": "66666666-6666-6666-6666-666666666666",
-            "telegram_id": _DEV_ID,
-            "title": "Meditar 10 minutos",
-            "target_frequency": "daily",
-            "streak_count": 5
-        }
-    ],
+    "calendar_events": [],
+    "kanban_tasks": [],
+    "financial_records": [],
+    "habits": [],
     "habit_logs": [],
-    "wiki_notes": [
-        {
-            "id": "88888888-8888-8888-8888-888888888888",
-            "telegram_id": _DEV_ID,
-            "title": "💡 Ideas para la Mini App Notion",
-            "content_json": {"type": "doc", "content": [{"type": "paragraph", "text": "Sistema completo de productividad personal integrado en Telegram."}]},
-            "tags": ["ideas", "saas", "notion"],
-            "updated_at": "2026-07-27T04:00:00Z"
-        }
-    ],
-    "local_reviews": [
-        {
-            "id": "99999999-9999-9999-9999-999999999999",
-            "telegram_id": _DEV_ID,
-            "place_name": "Café Central Notion",
-            "latitude": -34.6037,
-            "longitude": -58.3816,
-            "rating": 5,
-            "comment": "Excelente café con WiFi rápido para trabajar en la Mini App",
-            "created_at": "2026-07-28T01:00:00Z"
-        }
-    ]
+    "wiki_notes": [],
+    "passwords": []
 }
 
 class SupabaseService:
@@ -108,7 +47,7 @@ class SupabaseService:
         if self.has_supabase:
             try:
                 res = self.client.table("calendar_events").select("*").eq("telegram_id", telegram_id).execute()
-                return res.data
+                return res.data or []
             except Exception:
                 pass
         return [e for e in IN_MEMORY_DB["calendar_events"] if e.get("telegram_id") == telegram_id]
@@ -121,7 +60,7 @@ class SupabaseService:
             except Exception:
                 pass
         import uuid
-        event_data["id"] = str(uuid.uuid4())
+        event_data["id"] = event_data.get("id") or str(uuid.uuid4())
         IN_MEMORY_DB["calendar_events"].append(event_data)
         return event_data
 
@@ -151,10 +90,8 @@ class SupabaseService:
             if e["id"] == event_id and e.get("telegram_id") == telegram_id:
                 IN_MEMORY_DB["calendar_events"].pop(i)
                 return
-        raise ValueError("Event not found or access denied")
 
-    async def get_pending_reminders((self) -> List[Dict[str, Any]]:
-        """Fetch events that require a reminder notification."""
+    async def get_pending_reminders(self) -> List[Dict[str, Any]]:
         now = datetime.now(timezone.utc)
         pending = []
         if self.has_supabase:
@@ -194,34 +131,47 @@ class SupabaseService:
                 e["reminder_sent"] = True
                 return
 
-    # ===== LOCAL REVIEWS =====
-    async def get_local_reviews(self, telegram_id: int) -> List[Dict[str, Any]]:
+    # ===== PASSWORDS (BÓVEDA SEGUARA) =====
+    async def get_user_passwords(self, telegram_id: int) -> List[Dict[str, Any]]:
         if self.has_supabase:
             try:
-                res = self.client.table("local_reviews").select("*").eq("telegram_id", telegram_id).order("created_at", desc=True).execute()
+                res = self.client.table("passwords").select("*").eq("telegram_id", telegram_id).order("created_at", desc=True).execute()
                 return res.data or []
             except Exception:
                 pass
-        return [r for r in IN_MEMORY_DB["local_reviews"] if r.get("telegram_id") == telegram_id]
+        return [p for p in IN_MEMORY_DB["passwords"] if p.get("telegram_id") == telegram_id]
 
-    async def add_local_review(self, review_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def add_password(self, pwd_data: Dict[str, Any]) -> Dict[str, Any]:
         if self.has_supabase:
             try:
-                res = self.client.table("local_reviews").insert(review_data).execute()
-                return res.data[0] if res.data else review_data
+                res = self.client.table("passwords").insert(pwd_data).execute()
+                return res.data[0] if res.data else pwd_data
             except Exception:
                 pass
         import uuid
-        review_data["id"] = str(uuid.uuid4())
-        IN_MEMORY_DB["local_reviews"].append(review_data)
-        return review_data
+        pwd_data["id"] = pwd_data.get("id") or str(uuid.uuid4())
+        IN_MEMORY_DB["passwords"].append(pwd_data)
+        return pwd_data
+
+    async def delete_password(self, pwd_id: str, telegram_id: int) -> None:
+        if self.has_supabase:
+            try:
+                res = self.client.table("passwords").delete().eq("id", pwd_id).eq("telegram_id", telegram_id).execute()
+                if res.data:
+                    return
+            except Exception:
+                pass
+        for i, p in enumerate(IN_MEMORY_DB["passwords"]):
+            if p["id"] == pwd_id and p.get("telegram_id") == telegram_id:
+                IN_MEMORY_DB["passwords"].pop(i)
+                return
 
     # ===== KANBAN TASKS =====
     async def get_user_tasks(self, telegram_id: int) -> List[Dict[str, Any]]:
         if self.has_supabase:
             try:
                 res = self.client.table("kanban_tasks").select("*").eq("telegram_id", telegram_id).execute()
-                return res.data
+                return res.data or []
             except Exception:
                 pass
         return [t for t in IN_MEMORY_DB["kanban_tasks"] if t.get("telegram_id") == telegram_id]
@@ -234,7 +184,7 @@ class SupabaseService:
             except Exception:
                 pass
         import uuid
-        task_data["id"] = str(uuid.uuid4())
+        task_data["id"] = task_data.get("id") or str(uuid.uuid4())
         IN_MEMORY_DB["kanban_tasks"].append(task_data)
         return task_data
 
@@ -264,14 +214,13 @@ class SupabaseService:
             if t["id"] == task_id and t.get("telegram_id") == telegram_id:
                 IN_MEMORY_DB["kanban_tasks"].pop(i)
                 return
-        raise ValueError("Task not found or access denied")
 
     # ===== FINANCE RECORDS =====
     async def get_user_finances(self, telegram_id: int) -> List[Dict[str, Any]]:
         if self.has_supabase:
             try:
                 res = self.client.table("financial_records").select("*").eq("telegram_id", telegram_id).execute()
-                return res.data
+                return res.data or []
             except Exception:
                 pass
         return [f for f in IN_MEMORY_DB["financial_records"] if f.get("telegram_id") == telegram_id]
@@ -284,7 +233,7 @@ class SupabaseService:
             except Exception:
                 pass
         import uuid
-        finance_data["id"] = str(uuid.uuid4())
+        finance_data["id"] = finance_data.get("id") or str(uuid.uuid4())
         IN_MEMORY_DB["financial_records"].append(finance_data)
         return finance_data
 
@@ -300,7 +249,6 @@ class SupabaseService:
             if f["id"] == record_id and f.get("telegram_id") == telegram_id:
                 IN_MEMORY_DB["financial_records"].pop(i)
                 return
-        raise ValueError("Record not found or access denied")
 
     async def update_finance(self, record_id: str, telegram_id: int, update_data: Dict[str, Any]) -> Dict[str, Any]:
         if self.has_supabase:
@@ -321,7 +269,7 @@ class SupabaseService:
         if self.has_supabase:
             try:
                 res = self.client.table("habits").select("*").eq("telegram_id", telegram_id).execute()
-                return res.data
+                return res.data or []
             except Exception:
                 pass
         return [h for h in IN_MEMORY_DB["habits"] if h.get("telegram_id") == telegram_id]
@@ -334,7 +282,7 @@ class SupabaseService:
             except Exception:
                 pass
         import uuid
-        habit_data["id"] = str(uuid.uuid4())
+        habit_data["id"] = habit_data.get("id") or str(uuid.uuid4())
         IN_MEMORY_DB["habits"].append(habit_data)
         return habit_data
 
@@ -350,110 +298,13 @@ class SupabaseService:
             if h["id"] == habit_id and h.get("telegram_id") == telegram_id:
                 IN_MEMORY_DB["habits"].pop(i)
                 return
-        raise ValueError("Habit not found or access denied")
-
-    async def update_habit(self, habit_id: str, telegram_id: int, update_data: Dict[str, Any]) -> Dict[str, Any]:
-        if self.has_supabase:
-            try:
-                res = self.client.table("habits").update(update_data).eq("id", habit_id).eq("telegram_id", telegram_id).execute()
-                if res.data:
-                    return res.data[0]
-            except Exception:
-                pass
-        for h in IN_MEMORY_DB["habits"]:
-            if h["id"] == habit_id and h.get("telegram_id") == telegram_id:
-                h.update(update_data)
-                return h
-        raise ValueError("Habit not found or access denied")
-
-    async def log_habit_completion(self, habit_id: str, telegram_id: int, completed_date) -> Dict[str, Any]:
-        from datetime import date
-        if isinstance(completed_date, str):
-            completed_date = date.fromisoformat(completed_date)
-        
-        if self.has_supabase:
-            try:
-                habit_res = self.client.table("habits").select("*").eq("id", habit_id).eq("telegram_id", telegram_id).execute()
-                if habit_res.data:
-                    habit = habit_res.data[0]
-                    self.client.table("habit_logs").insert({
-                        "habit_id": habit_id,
-                        "completed_date": completed_date.isoformat()
-                    }).execute()
-                    new_streak = await self._calculate_streak(habit_id)
-                    self.client.table("habits").update({"streak_count": new_streak}).eq("id", habit_id).execute()
-                    return {"status": "success", "streak_count": new_streak, "habit": {**habit, "streak_count": new_streak}}
-            except Exception as e:
-                if "duplicate key" in str(e).lower() or "unique" in str(e).lower():
-                    raise ValueError("Already logged for this date")
-        
-        habit = None
-        for h in IN_MEMORY_DB["habits"]:
-            if h["id"] == habit_id and h.get("telegram_id") == telegram_id:
-                habit = h
-                break
-        if not habit:
-            raise ValueError("Habit not found or access denied")
-        
-        for log in IN_MEMORY_DB["habit_logs"]:
-            if log["habit_id"] == habit_id and log["completed_date"] == completed_date.isoformat():
-                raise ValueError("Already logged for this date")
-        
-        import uuid
-        IN_MEMORY_DB["habit_logs"].append({
-            "id": str(uuid.uuid4()),
-            "habit_id": habit_id,
-            "completed_date": completed_date.isoformat()
-        })
-        
-        new_streak = self._calculate_streak_memory(habit_id)
-        habit["streak_count"] = new_streak
-        return {"status": "success", "streak_count": new_streak, "habit": habit}
-
-    async def _calculate_streak(self, habit_id: str) -> int:
-        from datetime import date, timedelta
-        logs_res = self.client.table("habit_logs").select("completed_date").eq("habit_id", habit_id).order("completed_date", desc=True).execute()
-        if not logs_res.data:
-            return 0
-        today = date.today()
-        streak = 0
-        expected_date = today
-        for log in logs_res.data:
-            log_date = date.fromisoformat(log["completed_date"])
-            if log_date == expected_date:
-                streak += 1
-                expected_date -= timedelta(days=1)
-            elif log_date < expected_date:
-                break
-        return streak
-
-    def _calculate_streak_memory(self, habit_id: str) -> int:
-        from datetime import date, timedelta
-        logs = sorted(
-            [l for l in IN_MEMORY_DB["habit_logs"] if l["habit_id"] == habit_id],
-            key=lambda x: x["completed_date"],
-            reverse=True
-        )
-        if not logs:
-            return 0
-        today = date.today()
-        streak = 0
-        expected_date = today
-        for log in logs:
-            log_date = date.fromisoformat(log["completed_date"])
-            if log_date == expected_date:
-                streak += 1
-                expected_date -= timedelta(days=1)
-            elif log_date < expected_date:
-                break
-        return streak
 
     # ===== WIKI NOTES =====
     async def get_user_wiki(self, telegram_id: int) -> List[Dict[str, Any]]:
         if self.has_supabase:
             try:
                 res = self.client.table("wiki_notes").select("*").eq("telegram_id", telegram_id).execute()
-                return res.data
+                return res.data or []
             except Exception:
                 pass
         return [w for w in IN_MEMORY_DB["wiki_notes"] if w.get("telegram_id") == telegram_id]
@@ -466,23 +317,9 @@ class SupabaseService:
             except Exception:
                 pass
         import uuid
-        note_data["id"] = str(uuid.uuid4())
+        note_data["id"] = note_data.get("id") or str(uuid.uuid4())
         IN_MEMORY_DB["wiki_notes"].append(note_data)
         return note_data
-
-    async def update_wiki(self, note_id: str, telegram_id: int, update_data: Dict[str, Any]) -> Dict[str, Any]:
-        if self.has_supabase:
-            try:
-                res = self.client.table("wiki_notes").update(update_data).eq("id", note_id).eq("telegram_id", telegram_id).execute()
-                if res.data:
-                    return res.data[0]
-            except Exception:
-                pass
-        for w in IN_MEMORY_DB["wiki_notes"]:
-            if w["id"] == note_id and w.get("telegram_id") == telegram_id:
-                w.update(update_data)
-                return w
-        raise ValueError("Note not found or access denied")
 
     async def delete_wiki(self, note_id: str, telegram_id: int) -> None:
         if self.has_supabase:
@@ -496,7 +333,6 @@ class SupabaseService:
             if w["id"] == note_id and w.get("telegram_id") == telegram_id:
                 IN_MEMORY_DB["wiki_notes"].pop(i)
                 return
-        raise ValueError("Note not found or access denied")
 
     # ===== USERS & LOCATION =====
     async def upsert_user(self, telegram_id: int, username: str = "", first_name: str = "", timezone: str = "UTC") -> Dict[str, Any]:
@@ -544,15 +380,6 @@ class SupabaseService:
                 u.update(update_data)
                 return u
         raise ValueError("User not found")
-
-    async def get_all_users(self) -> List[Dict[str, Any]]:
-        if self.has_supabase:
-            try:
-                res = self.client.table("users").select("*").execute()
-                return res.data or []
-            except Exception:
-                pass
-        return IN_MEMORY_DB["users"]
 
 
 db_service = SupabaseService()

@@ -1,9 +1,9 @@
 from fastapi import APIRouter
 
 try:
-    from backend.api.endpoints import calendar, kanban, finance, habits, wiki, users, reviews
+    from backend.api.endpoints import calendar, kanban, finance, habits, wiki, users, passwords
 except ModuleNotFoundError:
-    from api.endpoints import calendar, kanban, finance, habits, wiki, users, reviews
+    from api.endpoints import calendar, kanban, finance, habits, wiki, users, passwords
 
 api_router = APIRouter(prefix="/api")
 
@@ -13,4 +13,4 @@ api_router.include_router(finance.router)
 api_router.include_router(habits.router)
 api_router.include_router(wiki.router)
 api_router.include_router(users.router)
-api_router.include_router(reviews.router)
+api_router.include_router(passwords.router)

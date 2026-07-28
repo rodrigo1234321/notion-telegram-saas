@@ -15,35 +15,47 @@ interface Habit {
   completedToday: boolean;
 }
 
-const initialHabits: Habit[] = [
-  { id: '1', title: 'Meditar 10 minutos', streak: 5, completedToday: true },
-  { id: '2', title: 'Hacer ejercicio 45m', streak: 3, completedToday: false },
-  { id: '3', title: 'Leer 20 páginas de libro', streak: 12, completedToday: false },
-];
+const LOCAL_STORAGE_KEY = 'saas_habits_list';
 
 export default function HabitsPage() {
-  const [habits, setHabits] = useState<Habit[]>(initialHabits);
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [title, setTitle] = useState('');
 
   useEffect(() => {
+    // 1. Instant local memory load
+    const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (cached) {
+      try {
+        setHabits(JSON.parse(cached));
+      } catch {}
+    }
+
+    // 2. Sync with API
     apiClient.get('/api/habits/')
       .then(res => {
         if (res.data?.data && res.data.data.length > 0) {
-          setHabits(res.data.data.map((h: any) => ({
+          const apiHabits = res.data.data.map((h: any) => ({
             id: h.id || String(Math.random()),
             title: h.title,
             streak: h.streak_count || 0,
             completedToday: false
-          })));
+          }));
+          setHabits(apiHabits);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(apiHabits));
         }
       })
       .catch(() => {});
   }, []);
 
+  const savePersistent = (newList: Habit[]) => {
+    setHabits(newList);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
+  };
+
   const toggleHabit = (id: string) => {
     triggerHaptic('heavy');
-    setHabits(habits.map(h => {
+    const updated = habits.map(h => {
       if (h.id === id) {
         const nextState = !h.completedToday;
         return {
@@ -53,12 +65,15 @@ export default function HabitsPage() {
         };
       }
       return h;
-    }));
+    });
+    savePersistent(updated);
   };
 
   const handleDelete = (id: string) => {
     triggerHaptic('rigid');
-    setHabits(habits.filter(h => h.id !== id));
+    const updated = habits.filter(h => h.id !== id);
+    savePersistent(updated);
+    apiClient.delete(`/api/habits/${id}`).catch(() => {});
   };
 
   const handleCreate = (e: React.FormEvent) => {
@@ -71,7 +86,10 @@ export default function HabitsPage() {
       streak: 0,
       completedToday: false
     };
-    setHabits([...habits, newHabit]);
+
+    const updated = [...habits, newHabit];
+    savePersistent(updated);
+
     setTitle('');
     setIsModalOpen(false);
 
@@ -82,14 +100,14 @@ export default function HabitsPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fadeIn">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-slate-100 flex items-center gap-2">
             <CheckSquare className="w-5 h-5 text-amber-400" />
             <span>Matriz de Hábitos</span>
           </h1>
-          <p className="text-xs text-slate-400">Construye constancia diaria con vibración háptica</p>
+          <p className="text-xs text-slate-400">Construye constancia diaria con memoria persistente</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)} variant="primary" className="!py-1.5 !px-3 text-xs bg-amber-600 hover:bg-amber-500">
           <Plus className="w-4 h-4" />
@@ -98,34 +116,38 @@ export default function HabitsPage() {
       </div>
 
       <div className="space-y-3">
-        {habits.map((habit) => (
-          <Card key={habit.id} className="flex items-center justify-between p-4">
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => toggleHabit(habit.id)}
-                className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
-                  habit.completedToday
-                    ? 'bg-amber-500 text-slate-950 scale-110 shadow-lg shadow-amber-500/30'
-                    : 'border-2 border-slate-700 hover:border-slate-500'
-                }`}
-              >
-                {habit.completedToday && <Check className="w-4 h-4 stroke-[3]" />}
-              </button>
-              <div>
-                <p className={`text-sm font-semibold ${habit.completedToday ? 'line-through text-slate-400' : 'text-slate-100'}`}>
-                  {habit.title}
-                </p>
-                <div className="flex items-center space-x-1 text-[11px] text-amber-400 font-medium">
-                  <Flame className="w-3.5 h-3.5 fill-amber-400" />
-                  <span>Racha de {habit.streak} días</span>
+        {habits.length === 0 ? (
+          <p className="text-xs text-slate-500 italic px-1">Sin hábitos registrados aún.</p>
+        ) : (
+          habits.map((habit) => (
+            <Card key={habit.id} className="flex items-center justify-between p-4">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => toggleHabit(habit.id)}
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
+                    habit.completedToday
+                      ? 'bg-amber-500 text-slate-950 scale-110 shadow-lg shadow-amber-500/30'
+                      : 'border-2 border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  {habit.completedToday && <Check className="w-4 h-4 stroke-[3]" />}
+                </button>
+                <div>
+                  <p className={`text-sm font-semibold ${habit.completedToday ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+                    {habit.title}
+                  </p>
+                  <div className="flex items-center space-x-1 text-[11px] text-amber-400 font-medium">
+                    <Flame className="w-3.5 h-3.5 fill-amber-400" />
+                    <span>Racha de {habit.streak} días</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <button onClick={() => handleDelete(habit.id)} className="text-slate-500 hover:text-red-400 p-1">
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </Card>
-        ))}
+              <button onClick={() => handleDelete(habit.id)} className="text-slate-500 hover:text-red-400 p-1">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </Card>
+          ))
+        )}
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Crear Nuevo Hábito">

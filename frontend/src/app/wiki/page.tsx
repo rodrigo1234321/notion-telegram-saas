@@ -16,25 +16,10 @@ interface WikiNote {
   updatedAt: string;
 }
 
-const initialNotes: WikiNote[] = [
-  {
-    id: '1',
-    title: '💡 Ideas para la Mini App Notion',
-    tags: ['ideas', 'saas', 'notion'],
-    content: 'Sistema completo de productividad personal integrado en Telegram con Gemini AI, RLS en Supabase y soporte para temas dinámicos.',
-    updatedAt: 'Hace 2 horas'
-  },
-  {
-    id: '2',
-    title: '📚 Resumen de Arquitectura FastAPI',
-    tags: ['backend', 'python', 'fastapi'],
-    content: 'Middleware de validación HMAC-SHA256 y controladores de endpoints para calendar, kanban, finance, habits y wiki.',
-    updatedAt: 'Ayer'
-  }
-];
+const LOCAL_STORAGE_KEY = 'saas_wiki_notes';
 
 export default function WikiPage() {
-  const [notes, setNotes] = useState<WikiNote[]>(initialNotes);
+  const [notes, setNotes] = useState<WikiNote[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<WikiNote | null>(null);
@@ -44,20 +29,36 @@ export default function WikiPage() {
   const [tagsInput, setTagsInput] = useState('');
 
   useEffect(() => {
+    // 1. Instant local memory load
+    const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (cached) {
+      try {
+        setNotes(JSON.parse(cached));
+      } catch {}
+    }
+
+    // 2. Sync with API
     apiClient.get('/api/wiki/notes')
       .then(res => {
         if (res.data?.data && res.data.data.length > 0) {
-          setNotes(res.data.data.map((n: any) => ({
+          const apiNotes = res.data.data.map((n: any) => ({
             id: n.id || String(Math.random()),
             title: n.title,
             tags: n.tags || ['general'],
-            content: n.content_json?.content?.[0]?.text || 'Nota sin contenido.',
+            content: n.content_json?.content?.[0]?.text || n.content || 'Nota sin contenido.',
             updatedAt: 'Reciente'
-          })));
+          }));
+          setNotes(apiNotes);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(apiNotes));
         }
       })
       .catch(() => {});
   }, []);
+
+  const savePersistent = (newList: WikiNote[]) => {
+    setNotes(newList);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
+  };
 
   const filteredNotes = notes.filter(n =>
     n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -76,7 +77,10 @@ export default function WikiPage() {
       content,
       updatedAt: 'Ahora'
     };
-    setNotes([newNote, ...notes]);
+
+    const updated = [newNote, ...notes];
+    savePersistent(updated);
+
     setTitle('');
     setContent('');
     setTagsInput('');
@@ -91,19 +95,21 @@ export default function WikiPage() {
 
   const handleDelete = (id: string) => {
     triggerHaptic('rigid');
-    setNotes(notes.filter(n => n.id !== id));
+    const updated = notes.filter(n => n.id !== id);
+    savePersistent(updated);
     if (selectedNote?.id === id) setSelectedNote(null);
+    apiClient.delete(`/api/wiki/notes/${id}`).catch(() => {});
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fadeIn">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-slate-100 flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-purple-400" />
             <span>Wiki & Notas Notion</span>
           </h1>
-          <p className="text-xs text-slate-400">Bloc de notas limpio con etiquetas y búsqueda</p>
+          <p className="text-xs text-slate-400">Bloc de notas con memoria persistente</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)} variant="primary" className="!py-1.5 !px-3 text-xs bg-purple-600 hover:bg-purple-500">
           <Plus className="w-4 h-4" />
@@ -124,43 +130,47 @@ export default function WikiPage() {
       </div>
 
       <div className="space-y-3">
-        {filteredNotes.map((note) => (
-          <Card
-            key={note.id}
-            className="hover:border-purple-500/40 transition-all cursor-pointer"
-          >
-            <div className="space-y-2">
-              <div className="flex items-start justify-between">
-                <h3
+        {filteredNotes.length === 0 ? (
+          <p className="text-xs text-slate-500 italic px-1">Sin notas guardadas aún.</p>
+        ) : (
+          filteredNotes.map((note) => (
+            <Card
+              key={note.id}
+              className="hover:border-purple-500/40 transition-all cursor-pointer"
+            >
+              <div className="space-y-2">
+                <div className="flex items-start justify-between">
+                  <h3
+                    onClick={() => { triggerHaptic('light'); setSelectedNote(note); }}
+                    className="font-semibold text-slate-100 text-sm flex items-center gap-1.5 hover:text-purple-300"
+                  >
+                    <FileText className="w-4 h-4 text-purple-400" />
+                    {note.title}
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] text-slate-400">{note.updatedAt}</span>
+                    <button onClick={() => handleDelete(note.id)} className="text-slate-500 hover:text-red-400 p-1">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <p
                   onClick={() => { triggerHaptic('light'); setSelectedNote(note); }}
-                  className="font-semibold text-slate-100 text-sm flex items-center gap-1.5 hover:text-purple-300"
+                  className="text-xs text-slate-300 line-clamp-2"
                 >
-                  <FileText className="w-4 h-4 text-purple-400" />
-                  {note.title}
-                </h3>
-                <div className="flex items-center space-x-2">
-                  <span className="text-[10px] text-slate-400">{note.updatedAt}</span>
-                  <button onClick={() => handleDelete(note.id)} className="text-slate-500 hover:text-red-400 p-1">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {note.content}
+                </p>
+                <div className="flex gap-1.5 pt-1">
+                  {note.tags.map((tag) => (
+                    <span key={tag} className="text-[9px] bg-purple-500/10 text-purple-300 px-2 py-0.5 rounded-md font-mono">
+                      #{tag}
+                    </span>
+                  ))}
                 </div>
               </div>
-              <p
-                onClick={() => { triggerHaptic('light'); setSelectedNote(note); }}
-                className="text-xs text-slate-300 line-clamp-2"
-              >
-                {note.content}
-              </p>
-              <div className="flex gap-1.5 pt-1">
-                {note.tags.map((tag) => (
-                  <span key={tag} className="text-[9px] bg-purple-500/10 text-purple-300 px-2 py-0.5 rounded-md font-mono">
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Modal: View Note */}
