@@ -1,18 +1,75 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Calendar as CalendarIcon, Clock, Plus, Tag } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
+import { Calendar as CalendarIcon, Clock, Plus, Tag, Trash2 } from 'lucide-react';
+import { triggerHaptic } from '@/lib/telegram';
+import { apiClient } from '@/lib/api_client';
 
-const mockEvents = [
+interface CalendarEvent {
+  id: string;
+  title: string;
+  time: string;
+  category: string;
+}
+
+const initialEvents: CalendarEvent[] = [
   { id: '1', title: 'Reunión de Planificación SaaS', time: '10:00 AM - 11:00 AM', category: 'Trabajo' },
   { id: '2', title: 'Sesión de Vibe Coding Gemini', time: '02:00 PM - 04:00 PM', category: 'Desarrollo' },
   { id: '3', title: 'Revisión de Métricas Financieras', time: '05:30 PM - 06:00 PM', category: 'Finanzas' },
 ];
 
 export default function CalendarPage() {
-  const [events, setEvents] = useState(mockEvents);
+  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [time, setTime] = useState('');
+  const [category, setCategory] = useState('Trabajo');
+
+  useEffect(() => {
+    apiClient.get('/api/calendar/events')
+      .then(res => {
+        if (res.data?.data && res.data.data.length > 0) {
+          setEvents(res.data.data.map((e: any) => ({
+            id: e.id || String(Math.random()),
+            title: e.title,
+            time: e.start_time ? new Date(e.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM',
+            category: e.category || 'General'
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleCreate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title) return;
+    triggerHaptic('heavy');
+    const newEvent: CalendarEvent = {
+      id: Date.now().toString(),
+      title,
+      time: time || '12:00 PM',
+      category
+    };
+    setEvents([newEvent, ...events]);
+    setTitle('');
+    setTime('');
+    setIsModalOpen(false);
+
+    apiClient.post('/api/calendar/events', {
+      title,
+      start_time: new Date().toISOString(),
+      end_time: new Date().toISOString(),
+      category
+    }).catch(() => {});
+  };
+
+  const handleDelete = (id: string) => {
+    triggerHaptic('rigid');
+    setEvents(events.filter(e => e.id !== id));
+  };
 
   return (
     <div className="space-y-4">
@@ -24,7 +81,7 @@ export default function CalendarPage() {
           </h1>
           <p className="text-xs text-slate-400">Planifica tu día con time-blocking inteligente</p>
         </div>
-        <Button variant="primary" className="!py-1.5 !px-3 text-xs">
+        <Button onClick={() => setIsModalOpen(true)} variant="primary" className="!py-1.5 !px-3 text-xs">
           <Plus className="w-4 h-4" />
           <span>Nuevo</span>
         </Button>
@@ -47,10 +104,55 @@ export default function CalendarPage() {
                   </span>
                 </div>
               </div>
+              <button onClick={() => handleDelete(event.id)} className="text-slate-500 hover:text-red-400 p-1">
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
           </Card>
         ))}
       </div>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Agendar Nuevo Evento">
+        <form onSubmit={handleCreate} className="space-y-3">
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">Título del Evento</label>
+            <input
+              type="text"
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ej: Reunión con cliente"
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">Horario</label>
+            <input
+              type="text"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              placeholder="Ej: 04:00 PM - 05:00 PM"
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">Categoría</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500"
+            >
+              <option value="Trabajo">Trabajo</option>
+              <option value="Desarrollo">Desarrollo</option>
+              <option value="Personal">Personal</option>
+              <option value="Finanzas">Finanzas</option>
+            </select>
+          </div>
+          <Button type="submit" variant="primary" className="w-full mt-2">
+            Guardar Evento
+          </Button>
+        </form>
+      </Modal>
     </div>
   );
 }
