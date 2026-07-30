@@ -1,6 +1,7 @@
 from typing import Dict, Any, List
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import requests
 
 try:
     from backend.database import db_service
@@ -86,7 +87,6 @@ async def log_habit(
     habit = next((h for h in habits if h.get("title", "").lower() == habit_title.lower()), None)
     
     if not habit:
-        # Auto-create habit if missing
         new_h = await db_service.add_habit({"telegram_id": telegram_id, "title": habit_title, "target_frequency": "daily", "streak_count": 1})
         return {"status": "success", "habit": new_h, "message": f"🔥 Nuevo hábito '{habit_title}' creado y completado hoy!"}
     
@@ -113,6 +113,32 @@ async def save_password_vault(
     }
     result = await db_service.add_password(pwd_data)
     return {"status": "success", "password": result, "message": f"🔑 Contraseña para '{service_name}' guardada de forma segura en tu Bóveda."}
+
+
+async def get_weather_forecast(
+    telegram_id: int = None,
+    city: str = "Buenos Aires",
+    latitude: float = -34.6037,
+    longitude: float = -58.3816
+) -> Dict[str, Any]:
+    """Get current weather forecast using Open-Meteo API."""
+    try:
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m"
+        r = requests.get(url, timeout=5.0).json()
+        curr = r.get("current", {})
+        temp = curr.get("temperature_2m", 20)
+        humidity = curr.get("relative_humidity_2m", 50)
+        wind = curr.get("wind_speed_10m", 10)
+        return {
+            "status": "success",
+            "city": city,
+            "temperature_c": temp,
+            "humidity_percent": humidity,
+            "wind_speed_kmh": wind,
+            "message": f"🌤️ Clima en {city}: {temp}°C, Humedad {humidity}%, Viento {wind} km/h."
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"No se pudo consultar el clima: {e}"}
 
 
 # Tool function declarations for Gemini (JSON schema format)
@@ -187,6 +213,16 @@ TOOL_DECLARATIONS = [
             },
             "required": ["service_name", "password_value"]
         }
+    },
+    {
+        "name": "get_weather_forecast",
+        "description": "Consulta el clima actual y pronóstico. Usa esto cuando el usuario pregunte por el clima, temperatura o pronóstico.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "city": {"type": "string", "description": "Nombre de la ciudad (ej: 'Buenos Aires', 'Madrid')"}
+            }
+        }
     }
 ]
 
@@ -198,4 +234,5 @@ TOOL_FUNCTIONS_MAP = {
     "record_transaction": record_transaction,
     "log_habit": log_habit,
     "save_password_vault": save_password_vault,
+    "get_weather_forecast": get_weather_forecast,
 }

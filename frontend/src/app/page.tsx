@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useTelegramUser } from '@/hooks/useTelegramUser';
 import { Card } from '@/components/ui/Card';
-import { Calendar, Trello, PieChart, CheckSquare, Sparkles, ArrowRight, ShieldCheck, Settings } from 'lucide-react';
+import { WeatherWidget } from '@/components/ui/WeatherWidget';
+import { Calendar, Trello, PieChart, CheckSquare, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HomePage() {
@@ -32,7 +33,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="space-y-5 animate-fadeIn">
+    <div className="space-y-4 animate-fadeIn">
       {/* Header Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-sky-500 p-5 text-white shadow-xl">
         <div className="relative z-10">
@@ -49,6 +50,9 @@ export default function HomePage() {
         </div>
         <div className="absolute -right-4 -bottom-4 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none" />
       </div>
+
+      {/* Live Weather Widget */}
+      <WeatherWidget />
 
       {/* Dynamic Quick Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
@@ -120,7 +124,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-100">Dashboard Financiero</h3>
-                  <p className="text-xs text-slate-400">Ingresos, gastos y gráficos en vivo</p>
+                  <p className="text-xs text-slate-400">Ingresos, gastos y gráficos mes a mes</p>
                 </div>
               </div>
               <ArrowRight className="w-5 h-5 text-slate-500 group-hover:translate-x-1 transition-transform" />

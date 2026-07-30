@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { FinanceCharts } from '@/components/charts/FinanceCharts';
-import { PieChart, DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Wallet, Award, Percent, FolderPlus } from 'lucide-react';
+import { PieChart, DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Wallet, Award, Percent, FolderPlus, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { triggerHaptic } from '@/lib/telegram';
 import { apiClient } from '@/lib/api_client';
 
@@ -15,6 +15,8 @@ interface FinanceRecord {
   amount: number;
   category: string;
   description: string;
+  record_date?: string;
+  created_at?: string;
 }
 
 const LOCAL_STORAGE_KEY = 'saas_finance_records';
@@ -35,6 +37,11 @@ const DEFAULT_CATEGORIES = [
   'CUSTOM_OPTION'
 ];
 
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
 export default function FinancePage() {
   const [records, setRecords] = useState<FinanceRecord[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,6 +50,9 @@ export default function FinancePage() {
   const [category, setCategory] = useState('Alimentación');
   const [customCategory, setCustomCategory] = useState('');
   const [description, setDescription] = useState('');
+
+  // Month & Year Filter State
+  const [filterDate, setFilterDate] = useState(new Date());
 
   useEffect(() => {
     // 1. Instant local memory load
@@ -62,7 +72,8 @@ export default function FinancePage() {
             type: r.type || 'expense',
             amount: Number(r.amount) || 0,
             category: r.category || 'General',
-            description: r.description || ''
+            description: r.description || '',
+            record_date: r.record_date || r.created_at || new Date().toISOString()
           }));
           setRecords(apiRecords);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(apiRecords));
@@ -76,18 +87,40 @@ export default function FinancePage() {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
   };
 
-  // Advanced Financial Calculations
-  const totalIncome = records.filter(r => r.type === 'income').reduce((acc, r) => acc + r.amount, 0);
-  const totalExpense = records.filter(r => r.type === 'expense').reduce((acc, r) => acc + r.amount, 0);
+  // Month Filter Logic
+  const selectedYear = filterDate.getFullYear();
+  const selectedMonth = filterDate.getMonth();
+
+  const prevMonth = () => {
+    triggerHaptic('light');
+    setFilterDate(new Date(selectedYear, selectedMonth - 1, 1));
+  };
+
+  const nextMonth = () => {
+    triggerHaptic('light');
+    setFilterDate(new Date(selectedYear, selectedMonth + 1, 1));
+  };
+
+  // Filter records for the currently selected month
+  const monthlyRecords = records.filter(r => {
+    const rawDate = r.record_date || r.created_at;
+    if (!rawDate) return true;
+    const d = new Date(rawDate);
+    return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+  });
+
+  // Advanced Financial Calculations for selected month
+  const totalIncome = monthlyRecords.filter(r => r.type === 'income').reduce((acc, r) => acc + r.amount, 0);
+  const totalExpense = monthlyRecords.filter(r => r.type === 'expense').reduce((acc, r) => acc + r.amount, 0);
   const netBalance = totalIncome - totalExpense;
 
   const savingsRate = totalIncome > 0
     ? Math.max(0, ((netBalance / totalIncome) * 100)).toFixed(1)
     : '0';
 
-  // Find top expense category
+  // Find top expense category for selected month
   const expenseMap: Record<string, number> = {};
-  records.filter(r => r.type === 'expense').forEach(r => {
+  monthlyRecords.filter(r => r.type === 'expense').forEach(r => {
     expenseMap[r.category] = (expenseMap[r.category] || 0) + r.amount;
   });
   const topExpenseCategory = Object.keys(expenseMap).reduce((a, b) => expenseMap[a] > expenseMap[b] ? a : b, 'Ninguna');
@@ -99,13 +132,15 @@ export default function FinancePage() {
     triggerHaptic('heavy');
 
     const finalCategory = category === 'CUSTOM_OPTION' ? (customCategory.trim() || 'Personalizada') : category;
+    const recordDateIso = new Date(selectedYear, selectedMonth, new Date().getDate()).toISOString().split('T')[0];
 
     const newRecord: FinanceRecord = {
       id: Date.now().toString(),
       type,
       amount: numAmount,
       category: finalCategory,
-      description
+      description,
+      record_date: recordDateIso
     };
 
     const updated = [newRecord, ...records];
@@ -121,7 +156,8 @@ export default function FinancePage() {
       type,
       amount: numAmount,
       category: finalCategory,
-      description
+      description,
+      record_date: recordDateIso
     }).catch(() => {});
   };
 
@@ -139,9 +175,9 @@ export default function FinancePage() {
         <div>
           <h1 className="text-lg font-bold text-slate-100 flex items-center gap-2">
             <PieChart className="w-5 h-5 text-emerald-400" />
-            <span>Finanzas & Métricas</span>
+            <span>Finanzas Mensuales</span>
           </h1>
-          <p className="text-xs text-slate-400">Categorías personalizadas y análisis gráfico</p>
+          <p className="text-xs text-slate-400">Control de gastos e ingresos por mes</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)} variant="primary" className="!py-1.5 !px-3 text-xs bg-emerald-600 hover:bg-emerald-500">
           <Plus className="w-4 h-4" />
@@ -149,12 +185,28 @@ export default function FinancePage() {
         </Button>
       </div>
 
-      {/* Main KPI Summary Cards */}
+      {/* Month Navigation Selector */}
+      <Card className="p-3 bg-slate-900/90 border-slate-800">
+        <div className="flex items-center justify-between">
+          <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-colors">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div className="flex items-center space-x-2 font-extrabold text-sm text-emerald-400">
+            <CalendarIcon className="w-4 h-4" />
+            <span>{MONTH_NAMES[selectedMonth]} {selectedYear}</span>
+          </div>
+          <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-colors">
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      </Card>
+
+      {/* Main KPI Summary Cards for Selected Month */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-3 bg-emerald-500/10 border-emerald-500/20">
           <div className="flex items-center space-x-2 text-emerald-400 mb-1">
             <TrendingUp className="w-4 h-4" />
-            <span className="text-[10px] font-semibold uppercase">Ingresos</span>
+            <span className="text-[10px] font-semibold uppercase">Ingresos {MONTH_NAMES[selectedMonth]}</span>
           </div>
           <p className="text-lg font-extrabold text-slate-100">${totalIncome.toFixed(2)}</p>
         </Card>
@@ -162,13 +214,13 @@ export default function FinancePage() {
         <Card className="p-3 bg-red-500/10 border-red-500/20">
           <div className="flex items-center space-x-2 text-red-400 mb-1">
             <TrendingDown className="w-4 h-4" />
-            <span className="text-[10px] font-semibold uppercase">Gastos</span>
+            <span className="text-[10px] font-semibold uppercase">Gastos {MONTH_NAMES[selectedMonth]}</span>
           </div>
           <p className="text-lg font-extrabold text-slate-100">${totalExpense.toFixed(2)}</p>
         </Card>
       </div>
 
-      {/* Advanced Statistics Grid */}
+      {/* Advanced Statistics Grid for Selected Month */}
       <div className="grid grid-cols-3 gap-2">
         <Card className="p-2.5 text-center space-y-0.5 border-slate-800">
           <div className="flex justify-center text-sky-400 mb-0.5">
@@ -194,23 +246,25 @@ export default function FinancePage() {
           </div>
           <p className="text-[9px] uppercase font-semibold text-slate-400">Mayor Gasto</p>
           <p className="text-[11px] font-extrabold text-purple-300 truncate">
-            {records.filter(r => r.type === 'expense').length > 0 ? topExpenseCategory : 'N/A'}
+            {monthlyRecords.filter(r => r.type === 'expense').length > 0 ? topExpenseCategory : 'N/A'}
           </p>
         </Card>
       </div>
 
       {/* Dynamic Visual Analytics */}
-      <Card title="Análisis Gráfico Dinámico" icon={<DollarSign className="w-4 h-4 text-emerald-400" />}>
-        <FinanceCharts records={records} />
+      <Card title={`Análisis Gráfico (${MONTH_NAMES[selectedMonth]} ${selectedYear})`} icon={<DollarSign className="w-4 h-4 text-emerald-400" />}>
+        <FinanceCharts records={monthlyRecords} />
       </Card>
 
-      {/* Recent Transactions List */}
+      {/* Transactions List for Selected Month */}
       <div className="space-y-2">
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Últimos Movimientos</h3>
-        {records.length === 0 ? (
-          <p className="text-xs text-slate-500 italic px-1">Sin registros financieros guardados.</p>
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">
+          Movimientos de {MONTH_NAMES[selectedMonth]} ({monthlyRecords.length})
+        </h3>
+        {monthlyRecords.length === 0 ? (
+          <p className="text-xs text-slate-500 italic px-1 py-2">No hay movimientos registrados en {MONTH_NAMES[selectedMonth]}.</p>
         ) : (
-          records.map((rec) => (
+          monthlyRecords.map((rec) => (
             <Card key={rec.id} className="flex items-center justify-between p-3">
               <div className="space-y-0.5">
                 <div className="flex items-center space-x-2">
@@ -233,7 +287,7 @@ export default function FinancePage() {
       </div>
 
       {/* Modal: Nuevo Registro */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Nuevo Registro Financiero">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Nuevo Registro (${MONTH_NAMES[selectedMonth]})`}>
         <form onSubmit={handleCreate} className="space-y-3">
           <div className="flex gap-2 p-1 bg-slate-900 rounded-xl">
             <button
@@ -309,7 +363,7 @@ export default function FinancePage() {
           </div>
 
           <Button type="submit" variant="primary" className="w-full mt-2 bg-emerald-600 hover:bg-emerald-500">
-            Guardar Transacción
+            Guardar en {MONTH_NAMES[selectedMonth]}
           </Button>
         </form>
       </Modal>
