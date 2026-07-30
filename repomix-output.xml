@@ -54,18 +54,25 @@ backend/
       finance.py
       habits.py
       kanban.py
+      passwords.py
+      users.py
       wiki.py
     router.py
   bot/
     handlers_chat.py
     scheduler.py
     telegram_bot.py
+  migrations/
+    002_get_calendar_reminders.sql
+  apply_migration.py
   config.py
   database.py
   main.py
   requirements.txt
   schema.sql
   security.py
+  set_webhook.py
+  test_db_migration.py
 frontend/
   src/
     app/
@@ -77,12 +84,18 @@ frontend/
         page.tsx
       kanban/
         page.tsx
+      passwords/
+        page.tsx
+      settings/
+        page.tsx
       wiki/
         page.tsx
       globals.css
       layout.tsx
       page.tsx
     components/
+      calendar/
+        MonthGrid.tsx
       charts/
         FinanceCharts.tsx
       ui/
@@ -102,10 +115,14 @@ frontend/
   tailwind.config.js
   tsconfig.json
   vercel.json
+migrations/
+  002_get_calendar_reminders.sql
 .env.example
 .gitignore
+ADENDA_OPENCODE_VIBE_CODING.md
 AGENTS.md
 docker-compose.yml
+PROMPT_MAESTRO_TELEGRAM_CONTROL.md
 render.yaml
 vercel.json
 </directory_structure>
@@ -113,35 +130,102 @@ vercel.json
 <files>
 This section contains the contents of the repository's files.
 
-<file path="backend/ai/prompts.py">
-SYSTEM_PROMPT = """
+<file path="backend/api/endpoints/passwords.py">
+router = APIRouter(prefix="/passwords", tags=["Passwords"])
+⋮----
+@router.get("/")
+async def get_passwords(user: Dict[str, Any] = Depends(get_current_telegram_user))
+⋮----
+records = await db_service.get_user_passwords(user["telegram_id"])
+⋮----
+@router.post("/")
+async def create_password(pwd_data: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_telegram_user))
+⋮----
+new_record = await db_service.add_password(pwd_data)
+⋮----
+@router.delete("/{pwd_id}")
+async def delete_password(pwd_id: str, user: Dict[str, Any] = Depends(get_current_telegram_user))
 </file>
 
-<file path="backend/bot/scheduler.py">
-scheduler = AsyncIOScheduler()
+<file path="backend/api/endpoints/users.py">
+router = APIRouter(prefix="/users", tags=["users"])
 ⋮----
-async def send_morning_digest()
+class UserPreferencesUpdate(BaseModel)
 ⋮----
-def start_scheduler()
+timezone: Optional[str] = None
+latitude: Optional[float] = None
+longitude: Optional[float] = None
+city: Optional[str] = None
+theme: Optional[str] = None
+font_scale: Optional[str] = None
+⋮----
+@router.get("/me")
+async def get_me(user: dict = Depends(get_current_telegram_user))
+⋮----
+profile = await db_service.get_user(user["telegram_id"])
+⋮----
+profile = await db_service.upsert_user(
+⋮----
+@router.patch("/preferences")
+async def update_preferences(prefs: UserPreferencesUpdate, user: dict = Depends(get_current_telegram_user))
+⋮----
+update_data = {k: v for k, v in prefs.model_dump().items() if v is not None}
+⋮----
+result = await db_service.update_user_preferences(user["telegram_id"], update_data)
 </file>
 
-<file path="backend/config.py">
-class Settings(BaseSettings)
+<file path="backend/migrations/002_get_calendar_reminders.sql">
+ALTER TABLE calendar_events
+ADD COLUMN IF NOT EXISTS reminder_minutes_before INT DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT FALSE;
+
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
+ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
+ADD COLUMN IF NOT EXISTS city VARCHAR(100);
+
+
+CREATE TABLE IF NOT EXISTS local_reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+    place_name VARCHAR(255) NOT NULL,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    rating INT CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE local_reviews ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'local_reviews' AND policyname = 'service_role_all_reviews'
+    ) THEN
+        CREATE POLICY service_role_all_reviews ON local_reviews FOR ALL USING (true);
+    END IF;
+END $$;
+</file>
+
+<file path="backend/apply_migration.py">
+def apply_migration()
 ⋮----
-TELEGRAM_BOT_TOKEN: str = "TELEGRAM_BOT_TOKEN_PLACEHOLDER"
-MI_TELEGRAM_ID: Optional[int] = None
-TELEGRAM_WEBHOOK_URL: str = "http://localhost:8000/bot/webhook"
-GEMINI_API_KEY: str = "GEMINI_API_KEY_PLACEHOLDER"
-SUPABASE_URL: str = "https://your-project.supabase.co"
-SUPABASE_ANON_KEY: str = "SUPABASE_ANON_KEY_PLACEHOLDER"
-SUPABASE_SERVICE_ROLE_KEY: str = "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
-ENVIRONMENT: str = "development"
-PORT: int = 8000
-NEXT_PUBLIC_API_URL: str = "http://localhost:8000"
+sql_file_path = os.path.join(os.path.dirname(__file__), 'migrations', '002_get_calendar_reminders.sql')
 ⋮----
-model_config = SettingsConfigDict(
+sql_content = f.read()
 ⋮----
-settings = Settings()
+url = f"{settings.SUPABASE_URL}/rest/v1/rpc/"
+headers = {
+⋮----
+project_ref = settings.SUPABASE_URL.split('//')[1].split('.')[0]
+db_url = f"postgresql://postgres.{project_ref}:{settings.SUPABASE_SERVICE_ROLE_KEY}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres"
+conn = psycopg2.connect(db_url)
+cursor = conn.cursor()
+⋮----
+# Try REST RPC exec
+r = requests.post(f"{settings.SUPABASE_URL}/rest/v1/", headers=headers)
 </file>
 
 <file path="backend/requirements.txt">
@@ -157,6 +241,949 @@ apscheduler>=3.10.4
 python-dotenv>=1.0.1
 </file>
 
+<file path="backend/set_webhook.py">
+BOT_TOKEN = "8955614393:AAE1t3EZVDqMCjhgxHKmS3kmwuADW7-XeEE"
+WEBHOOK_URL = "https://notion-telegram-saas.onrender.com/bot/webhook"
+⋮----
+def set_telegram_webhook()
+⋮----
+info_url = f"https://api.telegram.org/bot{BOT_TOKEN}/getWebhookInfo"
+r_info = requests.get(info_url).json()
+⋮----
+set_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={WEBHOOK_URL}"
+r_set = requests.get(set_url).json()
+⋮----
+# 3. Verify getWebhookInfo again
+r_info2 = requests.get(info_url).json()
+</file>
+
+<file path="backend/test_db_migration.py">
+def test_supabase_tables()
+⋮----
+url = f"{settings.SUPABASE_URL}/rest/v1/users?select=*"
+headers = {
+r = requests.get(url, headers=headers)
+</file>
+
+<file path="frontend/src/app/passwords/page.tsx">
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { Key, Plus, Trash2, Eye, EyeOff, Copy, Check, ShieldCheck, Lock } from 'lucide-react';
+import { triggerHaptic } from '@/lib/telegram';
+import { apiClient } from '@/lib/api_client';
+⋮----
+interface PasswordRecord {
+  id: string;
+  service_name: string;
+  username: string;
+  password_value: string;
+  category: string;
+  notes?: string;
+}
+⋮----
+// Persistent Memory Load
+⋮----
+// 1. Instant local memory load
+⋮----
+// 2. Sync with API
+⋮----
+// Save persistent state
+const savePersistent = (newList: PasswordRecord[]) =>
+⋮----
+const handleCreate = (e: React.FormEvent) =>
+⋮----
+const handleDelete = (id: string) =>
+⋮----
+const toggleVisibility = (id: string) =>
+⋮----
+const copyToClipboard = (text: string, id: string) =>
+⋮----
+<Button onClick=
+⋮----
+onClick=
+</file>
+
+<file path="frontend/src/app/settings/page.tsx">
+import { useState, useEffect } from 'react';
+import { useTelegramUser } from '@/hooks/useTelegramUser';
+import { apiClient } from '@/lib/api_client';
+import { triggerHaptic } from '@/lib/telegram';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { MapPin, Palette, Type, ArrowLeft, Check } from 'lucide-react';
+import Link from 'next/link';
+⋮----
+type ThemeChoice = 'auto' | 'light' | 'dark';
+type ScaleChoice = 'sm' | 'md' | 'lg';
+⋮----
+// Load from localStorage first
+⋮----
+function applyTheme(t: ThemeChoice)
+⋮----
+function applyFontScale(s: ScaleChoice)
+⋮----
+function handleThemeChange(t: ThemeChoice)
+⋮----
+function handleScaleChange(s: ScaleChoice)
+⋮----
+async function handleSave()
+</file>
+
+<file path="frontend/src/app/layout.tsx">
+import type { Metadata } from 'next';
+⋮----
+import { Navbar } from '@/components/ui/Navbar';
+⋮----
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+})
+</file>
+
+<file path="frontend/src/components/calendar/MonthGrid.tsx">
+import { useMemo } from 'react';
+⋮----
+interface Event {
+  id: string;
+  title: string;
+  start_time: string;
+  category: string;
+}
+⋮----
+interface MonthGridProps {
+  year: number;
+  month: number;
+  events: Event[];
+  selectedDate: string | null;
+  onSelectDate: (date: string) => void;
+}
+⋮----
+function toISODate(d: Date): string
+</file>
+
+<file path="frontend/src/components/ui/Button.tsx">
+import React from 'react';
+import { triggerHaptic } from '@/lib/telegram';
+⋮----
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger';
+  children: React.ReactNode;
+}
+⋮----
+export function Button(
+⋮----
+const handleClick = (e: React.MouseEvent<HTMLButtonElement>) =>
+</file>
+
+<file path="frontend/src/components/ui/Modal.tsx">
+import React from 'react';
+import { X } from 'lucide-react';
+import { triggerHaptic } from '@/lib/telegram';
+⋮----
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}
+⋮----
+export function Modal(
+⋮----
+const handleClose = () =>
+</file>
+
+<file path="frontend/src/lib/api_client.ts">
+import axios from 'axios';
+import { getTelegramInitData } from './telegram';
+</file>
+
+<file path="frontend/next-env.d.ts">
+
+</file>
+
+<file path="frontend/postcss.config.js">
+
+</file>
+
+<file path="frontend/tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+</file>
+
+<file path="frontend/vercel.json">
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs"
+}
+</file>
+
+<file path="migrations/002_get_calendar_reminders.sql">
+ALTER TABLE calendar_events
+ADD COLUMN IF NOT EXISTS reminder_minutes_before INT DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT FALSE;
+
+
+CREATE INDEX IF NOT EXISTS idx_calendar_events_reminders ON calendar_events(reminder_sent, reminder_minutes_before);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_reminder_calc ON calendar_events(reminder_sent, start_time);
+
+
+
+
+
+
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
+ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
+ADD COLUMN IF NOT EXISTS city VARCHAR(100);
+
+
+CREATE INDEX IF NOT EXISTS idx_users_location ON users(latitude, longitude);
+
+
+
+
+
+
+
+CREATE TABLE IF NOT EXISTS local_reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+    place_name VARCHAR(255) NOT NULL,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    rating INT CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE local_reviews ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY service_role_all_reviews ON local_reviews FOR ALL USING (true);
+
+
+
+
+
+
+CREATE OR REPLACE FUNCTION calendar_events.reminder_calc()
+RETURNS void AS $$
+BEGIN
+
+    NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION users.get_weather_location()
+RETURNS TABLE(lat double precision, lon double precision, city text)
+AS $$
+BEGIN
+    RETURN QUERY SELECT latitude, longitude, city FROM users WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    telegram_id BIGINT NOT NULL,
+    action TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY service_role_all_activity ON activity_logs FOR ALL USING (true);
+
+
+CREATE INDEX IF NOT EXISTS idx_activity_logs_user_action ON activity_logs(telegram_id, action);
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS daily_stats AS
+SELECT
+    DATE_TRUNC('day', created_at) as day,
+    COUNT(*) as total_actions,
+    telegram_id
+FROM activity_logs
+GROUP BY DATE_TRUNC('day', created_at), telegram_id;
+
+
+ALTER MATERIALIZED VIEW daily_stats OWNER TO service_role;
+</file>
+
+<file path=".gitignore">
+# Environment files (CRITICAL: NEVER COMMIT SECRETS)
+.env
+.env.local
+.env.*.local
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+</file>
+
+<file path="ADENDA_OPENCODE_VIBE_CODING.md">
+# ADENDA: INTEGRACIÓN CON OPENCODE PARA VIBE CODING
+# Complementa a PROMPT_MAESTRO_TELEGRAM_CONTROL.md y al plan de implementación ya generado
+
+Esta adenda corrige y extiende la sección `ai_engine.py` del plan. El resto del sistema
+(executor.py, sanitizer.py, capas de seguridad A–I) se mantiene sin cambios y sigue gobernando
+los comandos de shell que vos tipeás directamente. Lo que cambia es cómo el bot habla con
+opencode.
+
+---
+
+## 1. CORRECCIÓN ARQUITECTÓNICA CLAVE
+
+`opencode` **no es un chat que devuelve bloques de código para ejecutar** — es un agente que ya
+tiene sus propias tools (`edit`, `bash`, `write`, `patch`) y las ejecuta él mismo, dentro del
+directorio de proyecto que se le indique. El diseño anterior (parsear ` ```powershell ` de la
+respuesta y pasarlo a `executor.py`) no aplica acá: hay que dejar que opencode edite y corra
+comandos con su propio motor, y lo que hace el bot es **orquestar la sesión y mostrarte el
+resultado**, no interceptar su salida como si fuera texto plano.
+
+Separación de responsabilidades, de ahora en más:
+- **Canal de shell directo** (`executor.py`, ya construido): para comandos que vos tipeás a mano
+  desde Telegram. Sigue con las 9 capas tal cual están.
+- **Canal de vibe coding** (`ai_engine.py`, esta adenda): para pedirle a opencode que programe.
+  No pasa por `executor.py` — pasa por el propio sandbox de opencode, configurado en
+  `opencode.json`.
+
+---
+
+## 2. SERVIDOR PERSISTENTE (`opencode serve`)
+
+En vez de invocar `opencode run "..."` desde cero en cada mensaje (cold start + pérdida de
+contexto), el bot debe:
+
+1. Al arrancar, lanzar `opencode serve --hostname 127.0.0.1 --port 4096` como subproceso en
+   background (si no hay ya uno corriendo), **atado solo a localhost** — nunca `0.0.0.0`.
+2. Setear `OPENCODE_SERVER_PASSWORD` en `.env` y pasarlo como variable de entorno al subproceso,
+   para que el servidor exija basic auth incluso siendo local.
+3. Cada invocación posterior usa `opencode run --attach http://127.0.0.1:4096 ...`, evitando el
+   cold-start de los MCP servers en cada mensaje.
+4. Si el subproceso del servidor muere, `bot.py` lo reinicia y avisa por la Capa I (notificación
+   de arranque/caída), igual que hace con el bot mismo.
+
+## 3. SESIONES POR PROYECTO
+
+- `session_manager.py` mantiene un mapa `project_dir → opencode_session_id`, persistido en un
+  JSON chico en `logs/opencode_sessions.json` (no solo en memoria: si el bot se reinicia, no
+  querés perder el hilo de la sesión de opencode).
+- Al hacer `/cd <proyecto>`, el bot busca si ya existe sesión para ese directorio; si no, la crea
+  (`opencode session create` o, más simple, el primer `run` en ese `--path` genera una y se
+  guarda el `session_id` devuelto).
+- `/reset` ya no solo limpia `conversation_history` en memoria: además hace
+  `opencode run --fork` (o crea sesión nueva) para el proyecto activo, dejando la sesión vieja
+  archivable si después querés retomarla.
+
+## 4. COMANDOS NUEVOS DEL BOT
+
+| Comando | Qué hace |
+|---|---|
+| `/plan <mensaje>` | `opencode run --agent plan --attach ... --session <id> "<mensaje>"` — solo análisis, no toca archivos. Para pensar el approach antes de tocar código. |
+| `/code <mensaje>` (o el mensaje libre, default) | `opencode run --agent build --attach ... --session <id> --format json "<mensaje>"` — implementa, con escritura de archivos habilitada. |
+| `/tests` | Corre el comando de test configurado por proyecto (`TEST_COMMAND` en `.env` o en un archivito `project.json` dentro de cada proyecto) y devuelve pass/fail + salida resumida. |
+| `/diff` | `git diff --stat` + `git diff` (chunked) del proyecto activo — para revisar qué tocó opencode sin tener que preguntar. |
+| `/undo` | `git stash` o `git checkout -- .` sobre el proyecto activo — **siempre con confirmación (Capa D)**, es el botón de pánico. |
+| `/attach <ruta> <mensaje>` | Adjunta un archivo del proyecto (o algo subido por Telegram, guardado en `inbox/`) al mensaje vía `--file`, útil para mandarle un log de error o una captura desde el celular. |
+
+El loop recomendado para vibe coding real es el mismo que documenta el propio ecosistema de
+opencode: **plan → implement → verificar con tests → si falla, reintentar → finalizar**. Con
+`/plan`, `/code`, `/tests` y `/diff` como los cuatro botones de ese loop, calza natural desde el
+celular.
+
+## 5. PERMISOS: `opencode.json`, NO `--dangerously-skip-permissions` A CIEGAS
+
+En modo no-interactivo, cualquier permiso configurado como `"ask"` **cuelga o cancela la
+ejecución** porque no hay nadie del otro lado para responder el prompt (comportamiento
+documentado del CLI). La solución no es tirar `--dangerously-skip-permissions` global y cruzar
+los dedos — es configurar `opencode.json` en la raíz de cada proyecto con reglas explícitas de
+`allow`/`deny`, sin usar `"ask"` en absoluto para el perfil que dispara el bot:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "edit": "allow",
+    "external_directory": "deny",
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny"
+    },
+    "bash": {
+      "*": "deny",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git add*": "allow",
+      "git commit*": "allow",
+      "npm *": "allow",
+      "pnpm *": "allow",
+      "yarn *": "allow",
+      "python *": "allow",
+      "pytest*": "allow",
+      "rm *": "deny",
+      "Remove-Item*": "deny",
+      "format*": "deny",
+      "git push --force*": "deny",
+      "git push*": "deny"
+    },
+    "webfetch": "deny"
+  }
+}
+```
+
+Notar el paralelismo deliberado con la lista negra de `executor.py` (Capa B): las mismas
+categorías destructivas quedan bloqueadas acá también, como defensa en profundidad — si algún
+día opencode tiene un bug que ignora una regla, la otra capa (git como red de seguridad + revisión
+de diff) sigue ahí. `git push` queda en `deny` a propósito: que opencode commitee libremente
+dentro del sandbox está bien, pero el push a un remoto lo hacés vos a mano o vía `/git push` con
+confirmación explícita del lado del bot.
+
+Si en la práctica con la versión instalada de opencode alguna escritura sigue sin aplicarse pese
+a `edit: allow` (hay un issue conocido de este tipo en versiones anteriores), recién ahí evaluar
+`--dangerously-skip-permissions` como último recurso — y agregarlo al checklist de QA como caso
+a probar explícitamente, no asumir que hace falta de entrada.
+
+## 6. STREAMING DE PROGRESO
+
+Usar `--format json` en cada `opencode run` y parsear el stream de eventos para ir editando el
+mensaje de Telegram cada ~2-3 segundos (nunca más rápido: Telegram limita ediciones por chat) con
+algo tipo:
+```
+🔧 Editando src/api.ts...
+🔧 Corriendo npm test...
+```
+en vez de quedarte con la pantalla muda esperando una respuesta que puede tardar más de un
+minuto. Es la mejora de UX más importante para que esto se sienta como "vibe coding" y no como
+mandar un comando a un buzón.
+
+## 7. CAMBIOS A `.env` / `config.py`
+
+Agregar:
+```
+OPENCODE_SERVER_HOST=127.0.0.1
+OPENCODE_SERVER_PORT=4096
+OPENCODE_SERVER_PASSWORD=
+TEST_COMMAND=
+```
+`config.py` valida que si `AI_BACKEND=opencode` (ya es el default), `OPENCODE_CLI_PATH` exista en
+disco antes de arrancar — igual que ya valida `ALLOWED_PROJECT_DIRS`.
+
+## 8. AGREGAR AL CHECKLIST DE QA (sección 6 del plan original)
+
+9. Con `opencode.json` en un proyecto de prueba, correr `/code "crea un archivo test.txt con la
+   fecha de hoy"` y confirmar que el archivo se crea realmente (verifica que `edit: allow`
+   funciona en modo headless con la versión instalada).
+10. Correr `/code "borrá todo el contenido de la carpeta"` (en un proyecto de prueba
+    descartable) y confirmar que la regla `bash.deny` bloquea el intento, no solo lo registra.
+11. Matar el proceso de `opencode serve` a mano y confirmar que el bot lo detecta y lo reinicia
+    solo, avisando por Telegram.
+12. Reiniciar el bot y confirmar que `/code` en un proyecto ya usado retoma la sesión anterior
+    (lee `logs/opencode_sessions.json`) en vez de arrancar una conversación nueva sin contexto.
+</file>
+
+<file path="AGENTS.md">
+# 🤖 INSTRUCCIONES DEL SISTEMA Y REGLAS DEL AGENTE (AGENTS.md)
+
+## 📌 PROPÓSITO DEL PROYECTO
+Este repositorio contiene la arquitectura completa de producción para un **SaaS de Productividad Personal Notion-like alojado en Telegram**.
+
+## 🏗️ ARQUITECTURA GENERAL
+1. **Backend (`/backend`)**:
+   - Framework: **FastAPI** (Python 3.10+)
+   - Autenticación: Middleware HMAC-SHA256 para `Telegram initData`
+   - Motor de IA: **Google Gemini 1.5 Flash** con **Function Calling** nativo.
+   - Base de Datos: **Supabase PostgreSQL** con Row Level Security (RLS).
+   - Bot Conversacional: `python-telegram-bot` (asíncrono).
+
+2. **Frontend (`/frontend`)**:
+   - Framework: **Next.js 14 (App Router)**
+   - Estilos: **Tailwind CSS** + Variables CSS dinámicas del tema Telegram (`--tg-theme-*`).
+   - Componentes: Lucide React, Framer Motion, Recharts.
+   - SDK Telegram: `@telegram-apps/sdk-react`.
+
+## 🛡️ REGLAS DE SEGURIDAD
+- Ningún endpoint de FastAPI puede responder sin validar las cabeceras `Authorization` o `Telegram-Init-Data`.
+- La clave `SERVICE_ROLE_KEY` de Supabase solo debe usarse en operaciones administrativas de backend.
+- Nunca commitear credenciales o secretos en `.env`.
+</file>
+
+<file path="docker-compose.yml">
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./frontend:/app
+      - /app/.next
+    command: npm run dev
+</file>
+
+<file path="PROMPT_MAESTRO_TELEGRAM_CONTROL.md">
+# PROMPT MAESTRO: SISTEMA DE CONTROL REMOTO Y DESARROLLO VÍA TELEGRAM
+# AGENTE OBJETIVO: GOOGLE ANTIGRAVITY — MODO BUILD AUTÓNOMO
+
+Actuás como **Ingeniero de Software Principal y Arquitecto de Seguridad**. Tu tarea es diseñar,
+programar, estructurar, verificar e instalar un sistema completo en Python para controlar esta PC
+remotamente desde un celular mediante un Bot de Telegram, priorizando en todo momento la
+**seguridad por sobre la comodidad**. Ningún atajo de conveniencia puede debilitar una capa de
+seguridad descripta en este documento.
+
+Si en algún punto una instrucción funcional entra en conflicto con una instrucción de seguridad,
+**gana la seguridad**, y debés dejarlo asentado en el resumen final en vez de resolverlo por tu
+cuenta relajando el guardrail.
+
+---
+
+## 0. RESUMEN EJECUTIVO
+
+Vas a construir un bot de Telegram que corre en background en esta notebook Windows 11 y que me
+permite, desde mi celular:
+1. Ejecutar comandos de PowerShell/CMD dentro de directorios de proyecto autorizados.
+2. Delegar tareas de codeo a un motor de IA (Ollama local, y opcionalmente un router de modelos
+   propio u OpenCode) que puede generar y ejecutar código.
+3. Monitorear el estado del sistema y de los proyectos (status, logs, git, screenshots).
+4. Hacerlo todo con múltiples capas de seguridad que impidan daño accidental o abuso, incluso si
+   el modelo de IA subyacente sugiere un comando peligroso.
+
+El bot NO reemplaza mi criterio: para cualquier acción destructiva, pide confirmación explícita
+antes de ejecutar.
+
+---
+
+## 1. ESPECIFICACIONES TÉCNICAS Y ENTORNO
+
+- **Lenguaje:** Python 3.10+, en un entorno virtual (`venv`) dedicado, nunca en el Python global.
+- **Sistema Operativo:** Windows 11. Los comandos de sistema se ejecutan vía **PowerShell 7
+  (`pwsh`)** si está instalado; si no, hacer fallback a `powershell.exe` (5.1) y dejarlo
+  registrado en el resumen final.
+- **Librerías principales:**
+  - `python-telegram-bot>=21.0` (API asíncrona, `Application.run_polling()`)
+  - `python-dotenv`
+  - `ollama` (cliente Python para modelos locales)
+  - `requests`
+  - `psutil` (métricas de sistema: CPU, RAM, disco, procesos)
+  - `mss` (opcional, solo si implementás `/screenshot`)
+- **Modo de conexión con Telegram:** **Polling**, no webhook. No hace falta abrir puertos, IP fija
+  ni certificados TLS: el bot inicia la conexión saliente hacia los servidores de Telegram, lo
+  cual es ideal para una notebook doméstica detrás de NAT.
+- **Codificación de mensajes:** usar `parse_mode="HTML"` en vez de MarkdownV2. MarkdownV2 exige
+  escapar ~18 caracteres especiales y es una fuente frecuente de errores de formato; HTML con
+  `<pre>` y `<code>` es más simple y robusto para mostrar salidas de consola.
+
+---
+
+## 2. ESTRUCTURA COMPLETA DEL PROYECTO
+
+Directorio raíz sugerido: `C:\Proyectos_IA\telegram-control\`
+
+```
+telegram-control/
+├── AGENTS.md
+├── README.md
+├── requirements.txt
+├── .gitignore
+├── .env.example
+├── .env
+├── install.ps1
+├── config.py
+├── logger.py
+├── sanitizer.py
+├── executor.py
+├── session_manager.py
+├── ai_engine.py
+├── bot.py
+└── logs/               (se crea en runtime, vacío en el repo salvo un .gitkeep)
+```
+
+### Descripción funcional de cada archivo
+
+**`AGENTS.md`**
+Manual de conducta para el motor de IA que redacta comandos dentro de este sistema. Debe
+establecer explícitamente:
+- Nunca generar un comando destructivo (borrar, sobrescribir, detener servicios, modificar
+  permisos) sin marcarlo como `REQUIERE_CONFIRMACION`.
+- Nunca operar fuera de `ALLOWED_PROJECT_DIRS`.
+- Nunca intentar leer, imprimir o transmitir el contenido de `.env` u otras credenciales.
+- Preferir siempre comandos de solo lectura/diagnóstico antes de proponer una modificación.
+- Explicar en una línea qué hace un comando antes de ejecutarlo, la primera vez que se usa ese
+  tipo de comando en la sesión.
+
+**`requirements.txt`**
+Dependencias con versión mínima fijada (no versiones exactas cerradas, para no romper con
+parches de seguridad): `python-telegram-bot>=21.0`, `python-dotenv>=1.0`, `ollama`, `requests`,
+`psutil`. Agregar `mss` solo si se implementa `/screenshot`.
+
+**`.gitignore`**
+Debe excluir como mínimo: `.env`, `venv/`, `__pycache__/`, `*.pyc`, `logs/*.log`,
+`logs/audit.db`. El objetivo es que este proyecto pueda vivir en un repo Git sin filtrar jamás
+el token del bot ni el ID de Telegram.
+
+**`config.py`**
+Carga y **valida estrictamente** las variables de `.env`. Si falta una variable obligatoria
+(`TELEGRAM_BOT_TOKEN`, `MI_TELEGRAM_ID`, `ALLOWED_PROJECT_DIRS`), el programa debe abortar el
+arranque con un mensaje de error claro en consola — nunca arrancar en un estado a medio
+configurar. Convierte `ALLOWED_PROJECT_DIRS` (string separado por comas) en una lista de rutas
+absolutas normalizadas, y valida que cada una exista en disco.
+
+**`logger.py`**
+Logging estructurado con `RotatingFileHandler` (máx. 5 MB por archivo, 5 backups). Dos streams
+separados:
+- `logs/app.log`: eventos del programa (arranque, errores, reconexiones).
+- `logs/audit.log`: **auditoría de comandos** — quién (siempre el mismo `user_id` autorizado),
+  qué comando se pidió ejecutar, timestamp, y si fue aprobado/rechazado/bloqueado por qué capa.
+  Este archivo nunca se trunca automáticamente por fuera de la rotación por tamaño, y su
+  contenido pasa siempre por `sanitizer.py` antes de escribirse.
+
+**`sanitizer.py`**
+Filtro que se aplica a **toda** salida antes de mandarla a Telegram o escribirla en logs:
+- Detecta por patrón (no solo por palabra exacta) claves y tokens: variables tipo
+  `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*_KEY*`, `Bearer <valor>`, bloques `-----BEGIN...KEY-----`,
+  cadenas con forma de API key (prefijos largos alfanuméricos), y reemplaza el valor por
+  `[DATO_SENSIBLE_REDACTADO]` conservando el nombre de la variable para que el mensaje siga
+  siendo legible.
+- Nunca deja pasar el contenido completo de `.env`, aunque el usuario autorizado lo pida
+  explícitamente por chat — en ese caso, responde qué variables existen (solo nombres) sin
+  valores.
+
+**`executor.py`**
+Ejecución **sandboxeada** de PowerShell/CMD. Responsabilidades:
+- Recibe el comando, valida que el directorio de trabajo actual esté dentro de
+  `ALLOWED_PROJECT_DIRS` antes de ejecutar nada.
+- Aplica la lista negra de rutas y comandos (sección 4, Capa B) — **por defecto todo lo no
+  explícitamente permitido en un directorio autorizado se trata como sospechoso**, no al revés.
+- Corre el proceso con `asyncio.create_subprocess_exec` (nunca `shell=True` sin sanitizar) y
+  timeout configurable (`COMMAND_TIMEOUT_SECONDS`, default 45s), matando el proceso e hijos si
+  se excede.
+- Trunca stdout/stderr a `MAX_OUTPUT_CHARS` (default ~3500, límite práctico de un mensaje de
+  Telegram) y avisa que el log completo quedó en `logs/`.
+- Devuelve un objeto estructurado (código de salida, stdout, stderr, duración) — nunca imprime
+  directo, para que `bot.py` decida el formato.
+
+**`session_manager.py`**
+Estado en memoria por sesión (como solo hay un usuario autorizado, alcanza con un solo objeto de
+estado, pero dejalo modelado como diccionario por `user_id` para poder escalar):
+- `active_project_dir`: cuál de los `ALLOWED_PROJECT_DIRS` está activo (comando `/cd`).
+- `conversation_history`: contexto de la conversación con `ai_engine.py`, limpiable con `/reset`.
+- `locked`: booleano de kill-switch (Capa E).
+- `pending_confirmation`: comando en espera de que el usuario apriete Sí/No.
+
+**`ai_engine.py`**
+Motor de IA con lógica de despacho:
+- Consultas cortas / de chat → modelo local vía `ollama`.
+- Tareas de codeo o generación de comandos más largas → invocar CLI externo (`opencode` o
+  Antigravity, según lo que esté instalado) capturando su salida.
+- **Punto de integración opcional:** si ya existe un router propio de modelos gratuitos (por
+  ejemplo un script que rota modelos de OpenRouter según tipo de tarea), `ai_engine.py` puede
+  invocarlo como fallback en vez de depender únicamente de Ollama local — dejalo como hook
+  configurable (`AI_BACKEND=ollama|external_router|opencode`) en vez de hardcodearlo.
+- Cuando el modelo devuelve un bloque \`\`\`powershell o \`\`\`cmd, `ai_engine.py` lo pasa a
+  `executor.py` — nunca lo ejecuta directamente él mismo.
+
+**`bot.py`**
+Servidor principal asíncrono. Responsabilidades:
+- Autenticación por ID en **cada** update entrante (mensaje, callback de botón, comando).
+- Registro de comandos (ver tabla en sección 5).
+- Manejo de confirmaciones vía `InlineKeyboardMarkup` (botones Sí/No) para cualquier acción que
+  `executor.py` marque como `REQUIERE_CONFIRMACION`.
+- Chunking de mensajes largos (Telegram corta en ~4096 caracteres): dividir en múltiples mensajes
+  o editar el mismo mensaje de forma incremental para salidas largas/streaming.
+- Manejo global de excepciones por handler (un error en un comando no debe tumbar el bot
+  completo) y reconexión con backoff exponencial si se cae la conexión con la API de Telegram.
+- Notificación de arranque: al iniciar (o reiniciar tras un crash), el bot se manda un mensaje a
+  sí mismo tipo "🟢 Bot iniciado — <timestamp>" para que sepas si se cayó y volvió solo.
+
+**`install.ps1`**
+Script de instalación: crea el `venv`, instala `requirements.txt`, corre
+`python -m py_compile` sobre todos los `.py`, y **al final imprime, sin ejecutar**, el comando
+`schtasks` sugerido para registrar el bot como tarea programada de inicio de sesión. Registrar
+la tarea programada es una acción a nivel de sistema (fuera de `ALLOWED_PROJECT_DIRS`) y por eso
+el script solo la sugiere: la ejecutás vos manualmente, o el agente la ejecuta únicamente si se
+lo confirmás explícitamente en el chat de build.
+
+**`.env.example`** (plantilla, sin valores reales)
+```
+TELEGRAM_BOT_TOKEN=
+MI_TELEGRAM_ID=
+ALLOWED_PROJECT_DIRS=C:\Proyectos_IA
+DEFAULT_PROJECT_DIR=C:\Proyectos_IA
+COMMAND_TIMEOUT_SECONDS=45
+MAX_OUTPUT_CHARS=3500
+UNLOCK_PIN=
+AI_BACKEND=ollama
+OLLAMA_HOST=http://localhost:11434
+OPENCODE_CLI_PATH=
+LOG_LEVEL=INFO
+```
+
+**`.env`**
+Archivo real con mis valores. Nunca se commitea (ver `.gitignore`), nunca se imprime completo
+por chat.
+
+**`README.md`**
+Guía de uso en criollo: cómo generar el token con @BotFather, cómo obtener mi `user_id`
+(@userinfobot), cómo levantar el `venv`, comandos disponibles, y cómo usar `/lock` en caso de
+pérdida o robo del celular.
+
+---
+
+## 3. GUARDRAILS DE SEGURIDAD (OBLIGATORIO, MULTICAPA)
+
+### CAPA A — Autenticación por ID
+El bot DEBE verificar `user_id` en cada update. Si no coincide con `MI_TELEGRAM_ID`, el mensaje
+se ignora **silenciosamente** (no revelar que el bot existe respondiendo con un error) y el
+intento queda registrado en `audit.log` con el ID que lo intentó.
+
+### CAPA B — Control de rutas y comandos peligrosos
+**Rutas prohibidas** (lectura, escritura o borrado bloqueados sin excepción):
+`C:\Windows\`, `C:\Program Files\`, `C:\Program Files (x86)\`, `%APPDATA%`, `%LOCALAPPDATA%`,
+`.ssh`, `.aws`, `.gnupg`, cualquier ruta fuera de `ALLOWED_PROJECT_DIRS`.
+
+**Borrado seguro:** solo permitido dentro de `ALLOWED_PROJECT_DIRS`, y siempre pasa por
+confirmación (Capa D), sin excepción, sin importar cuán "obviamente seguro" parezca el comando.
+
+**Lista negra de comandos**, agrupada por motivo (bloqueo duro, no solo confirmación):
+- *Integridad del sistema:* `format`, `diskpart`, `bcdedit`, `vssadmin delete shadows`,
+  `Set-ExecutionPolicy`.
+- *Credenciales / cuentas:* `cmdkey`, `netsh wlan show profile * key=clear`, `net user`,
+  `net user administrator /active:yes`.
+- *Registro / persistencia:* `reg add`, `reg delete`, `schtasks /create` (fuera del uso descripto
+  en `install.ps1`, y siempre con confirmación).
+- *Red / firewall:* `netsh advfirewall set allprofiles state off`.
+- *Anti-forense / logs:* `wevtutil cl`, `Clear-EventLog`.
+- *"Living-off-the-land" binaries frecuentes en malware:* `certutil -urlcache -split -f`,
+  `mshta`, `regsvr32 /u /i:`, `rundll32` con URLs remotas, `wmic process call create`.
+- *Defender / seguridad:* cualquier variante de `Set-MpPreference -Disable...`.
+
+Estos comandos se **bloquean directamente** (no se ofrece botón de confirmación): si aparecen en
+la salida sugerida por el motor de IA, `executor.py` los rechaza y le devuelve al motor de IA un
+mensaje de error para que replantee el enfoque, en vez de ejecutarlos igual.
+
+**Comandos que requieren confirmación (no bloqueo, pero sí botón Sí/No):**
+`Remove-Item` con `-Recurse` o `-Force`, `Stop-Process`, `Stop-Service`, `git push --force` /
+`--force-with-lease`, `npm publish`, cualquier sobrescritura de un archivo que ya existe fuera de
+la carpeta de trabajo activa.
+
+**Timeout:** todo comando corre con límite de `COMMAND_TIMEOUT_SECONDS` (default 45s),
+matando el árbol de procesos si se excede.
+
+### CAPA C — Sanitización de secretos
+Ver especificación de `sanitizer.py` arriba. Se aplica a toda respuesta saliente y a todo lo que
+se escribe en `audit.log`.
+
+### CAPA D — Confirmación explícita para acciones destructivas
+Toda acción marcada `REQUIERE_CONFIRMACION` se presenta con botones inline "✅ Confirmar" /
+"❌ Cancelar". El comando NO se ejecuta hasta recibir el callback de confirmación, y expira solo
+(se cancela) si no hay respuesta en 2 minutos.
+
+### CAPA E — Kill switch (`/lock` y `/unlock`)
+`/lock` desactiva inmediatamente la ejecución de cualquier comando (el bot sigue respondiendo
+`/status` y mensajes informativos, pero rechaza todo lo demás). Útil si perdés el celular.
+`/unlock <PIN>` reactiva el sistema, donde `<PIN>` se valida contra `UNLOCK_PIN` en `.env`
+(secreto separado del token del bot, para que un token comprometido no alcance por sí solo).
+
+### CAPA F — Rate limiting
+Máximo N comandos por minuto por usuario (configurable, default razonable: 20/min) para evitar
+loops accidentales del motor de IA o abuso si el token se filtra. Al superarse, se ignora el
+exceso y se avisa una sola vez, no en cada mensaje descartado.
+
+### CAPA G — Auditoría
+Todo comando ejecutado, bloqueado o pendiente de confirmación queda en `audit.log` con
+timestamp, y ese log nunca se borra automáticamente fuera de la rotación por tamaño.
+
+### CAPA H — Límite de recursos por proceso
+Los subprocesos lanzados no deben poder generar procesos hijos sin límite (proteger contra fork
+bombs accidentales): usar `asyncio.create_subprocess_exec` con un único proceso por comando y
+matar el árbol completo al timeout, no solo el proceso raíz.
+
+### CAPA I — Notificación de arranque/caída
+Al iniciar o reiniciar tras un error no manejado, el bot se autoenvía un mensaje de estado, para
+detectar reinicios inesperados sin tener que revisar logs a mano.
+
+---
+
+## 4. FUNCIONALIDADES — COMANDOS DEL BOT
+
+| Comando | Función |
+|---|---|
+| `/start`, `/help` | Lista de comandos disponibles y su uso |
+| `/status` | CPU, RAM, disco, uptime del sistema y directorio de proyecto activo (via `psutil`) |
+| `/projects` | Lista los directorios en `ALLOWED_PROJECT_DIRS` |
+| `/cd <nombre>` | Cambia el proyecto activo (dentro de la whitelist únicamente) |
+| `/reset` | Limpia el historial de conversación con `ai_engine.py` (no afecta `audit.log`) |
+| `/git status\|commit\|push\|pull` | Wrappers seguros sobre git, dentro del proyecto activo |
+| `/getfile <ruta relativa>` | Envía un archivo del proyecto activo al chat |
+| Envío de archivo por Telegram | Lo guarda en una subcarpeta `inbox/` del proyecto activo |
+| `/screenshot` (opcional) | Captura de pantalla actual, útil para seguir un build/preview visualmente |
+| `/logs` | Últimas N líneas de `app.log` o `audit.log` (ya sanitizadas) |
+| `/lock`, `/unlock <PIN>` | Kill switch, ver Capa E |
+| Mensaje libre (texto) | Se interpreta como consulta/instrucción para `ai_engine.py`; si genera un bloque de código, se ofrece ejecutarlo (con confirmación si corresponde) |
+
+Todas las respuestas largas (salida de comandos, logs) van en bloques `<pre>` para legibilidad en
+el celular, cortadas en múltiples mensajes si superan el límite de Telegram.
+
+---
+
+## 5. MANEJO DE ERRORES Y RESILIENCIA
+
+- Cada handler de `bot.py` envuelto en `try/except` propio: un error en un comando no debe
+  crashear el proceso completo.
+- Reconexión con backoff exponencial ante caídas de red o de la API de Telegram.
+- Cualquier excepción no manejada se loguea completa (sanitizada) en `app.log` y dispara la
+  notificación de la Capa I al reiniciar.
+- `config.py` falla rápido y con mensaje claro si `.env` está incompleto — nunca arranca "a
+  medias".
+
+---
+
+## 6. CHECKLIST DE ACEPTACIÓN (QA) — VERIFICAR ANTES DE REPORTAR ÉXITO
+
+Antes de darme el resumen final, verificá y dejá constancia de cada punto:
+1. `python -m py_compile` corre sin errores sobre **todos** los `.py` del proyecto.
+2. `config.py` levanta una excepción clara si falta `TELEGRAM_BOT_TOKEN` o `MI_TELEGRAM_ID`
+   (probalo temporalmente comentando una variable en una copia del `.env`, no en el real).
+3. `sanitizer.py` redacta correctamente al menos un caso de prueba de cada patrón (password,
+   token, bearer, clave RSA de ejemplo).
+4. `executor.py` bloquea (no solo advierte) al menos un comando de cada categoría de la lista
+   negra dura, y pide confirmación en al menos un comando de la lista de confirmación.
+5. Un `user_id` distinto al configurado es ignorado sin respuesta visible.
+6. `.gitignore` efectivamente excluye `.env` (correlo con `git check-ignore .env` si el proyecto
+   ya es un repo git).
+7. `logs/` se crea automáticamente si no existe, sin error.
+8. El script `install.ps1` corre de punta a punta sin intervención manual salvo por la sugerencia
+   final de `schtasks` (que NO debe ejecutarse solo).
+
+---
+
+## 7. MODO DE EJECUCIÓN AUTÓNOMA (BUILD MODE)
+
+Procedé usando tus MCPs de Filesystem y Terminal, en este orden:
+
+1. Crear la estructura de carpetas y el archivo `AGENTS.md`.
+2. Escribir `.gitignore` y `.env.example` primero (antes que cualquier código), para que el
+   proyecto nunca exista sin protección de secretos ni siquiera un instante.
+3. Escribir el código modular completo: `config.py`, `logger.py`, `sanitizer.py`, `executor.py`,
+   `session_manager.py`, `ai_engine.py`, `bot.py`.
+4. Escribir `requirements.txt` e `install.ps1`.
+5. Crear el `venv`, instalar dependencias mediante `install.ps1`.
+6. Correr el checklist de la sección 6 completo.
+7. Corregir de forma autónoma cualquier error de compilación, instalación o de los tests del
+   checklist que surja, repitiendo el checklist hasta que todo pase.
+8. Crear `.env` real vacío (solo con las claves, sin valores) y `README.md`.
+9. **No** registrar la tarea programada de inicio automático: solo mostrarme el comando
+   `schtasks` sugerido para que yo decida cuándo ejecutarlo.
+
+---
+
+## 8. ENTREGABLE FINAL
+
+Al terminar, presentame un resumen que confirme explícitamente:
+- Qué archivos se crearon y con qué responsabilidad cada uno.
+- Que las 9 capas de seguridad (A a I) están implementadas y en qué archivo vive cada una.
+- Resultado del checklist de aceptación, punto por punto.
+- Qué variables me faltan completar en `.env` (`TELEGRAM_BOT_TOKEN`, `MI_TELEGRAM_ID`,
+  `UNLOCK_PIN`, y `ALLOWED_PROJECT_DIRS` si quiero agregar más carpetas).
+- El comando exacto de `schtasks` sugerido para persistencia, sin haberlo ejecutado.
+</file>
+
+<file path="backend/ai/prompts.py">
+def get_system_prompt(user_timezone: str = "America/Argentina/Buenos_Aires") -> str
+⋮----
+tz = ZoneInfo(user_timezone)
+⋮----
+tz = ZoneInfo("America/Argentina/Buenos_Aires")
+⋮----
+now = datetime.now(tz)
+now_utc = datetime.now(ZoneInfo("UTC"))
+⋮----
+date_str = now.strftime("%A, %d de %B de %Y")
+time_str = now.strftime("%H:%M")
+timezone_str = str(tz)
+day_of_week = now.strftime("%A")
+⋮----
+days_es = {
+day_es = days_es.get(day_of_week, day_of_week)
+</file>
+
 <file path="backend/schema.sql">
 CREATE TABLE IF NOT EXISTS users (
     telegram_id BIGINT PRIMARY KEY,
@@ -164,6 +1191,9 @@ CREATE TABLE IF NOT EXISTS users (
     first_name VARCHAR(255),
     timezone VARCHAR(50) DEFAULT 'UTC',
     language_code VARCHAR(10) DEFAULT 'es',
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    city VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -188,6 +1218,8 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     category VARCHAR(50) DEFAULT 'general',
     is_all_day BOOLEAN DEFAULT FALSE,
     google_event_id VARCHAR(255),
+    reminder_minutes_before INT DEFAULT NULL,
+    reminder_sent BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -261,6 +1293,21 @@ ALTER TABLE habit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wiki_notes ENABLE ROW LEVEL SECURITY;
 
 
+CREATE TABLE IF NOT EXISTS local_reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+    place_name VARCHAR(255) NOT NULL,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    rating INT CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE local_reviews ENABLE ROW LEVEL SECURITY;
+CREATE POLICY service_role_all_reviews ON local_reviews FOR ALL USING (true);
+
+
 CREATE POLICY service_role_all_users ON users FOR ALL USING (true);
 CREATE POLICY service_role_all_memories ON ai_memories FOR ALL USING (true);
 CREATE POLICY service_role_all_events ON calendar_events FOR ALL USING (true);
@@ -271,31 +1318,6 @@ CREATE POLICY service_role_all_habit_logs ON habit_logs FOR ALL USING (true);
 CREATE POLICY service_role_all_wiki ON wiki_notes FOR ALL USING (true);
 </file>
 
-<file path="frontend/src/app/finance/page.tsx">
-import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
-import { FinanceCharts } from '@/components/charts/FinanceCharts';
-import { PieChart, DollarSign, TrendingUp, TrendingDown, Plus, Trash2 } from 'lucide-react';
-import { triggerHaptic } from '@/lib/telegram';
-import { apiClient } from '@/lib/api_client';
-⋮----
-interface FinanceRecord {
-  id: string;
-  type: 'income' | 'expense';
-  amount: number;
-  category: string;
-  description: string;
-}
-⋮----
-const handleCreate = (e: React.FormEvent) =>
-⋮----
-const handleDelete = (id: string) =>
-⋮----
-<Button onClick=
-</file>
-
 <file path="frontend/src/app/globals.css">
 @tailwind base;
 @tailwind components;
@@ -303,51 +1325,36 @@ const handleDelete = (id: string) =>
 ⋮----
 :root {
 ⋮----
+[data-theme="light"] {
+⋮----
+[data-theme="dark"] {
+⋮----
+[data-scale="sm"] { --font-scale: 0.85; }
+[data-scale="md"] { --font-scale: 1; }
+[data-scale="lg"] { --font-scale: 1.15; }
+⋮----
 body {
 ⋮----
 ::-webkit-scrollbar {
 ::-webkit-scrollbar-track {
 ::-webkit-scrollbar-thumb {
-</file>
-
-<file path="frontend/src/app/layout.tsx">
-import type { Metadata } from 'next';
 ⋮----
-import { Navbar } from '@/components/ui/Navbar';
+.animate-fadeIn {
 ⋮----
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-})
+[data-theme="light"] .bg-slate-800\/80,
+[data-theme="light"] .text-slate-100,
+[data-theme="light"] .text-slate-400 {
+[data-theme="light"] .border-slate-700,
 </file>
 
 <file path="frontend/src/app/page.tsx">
+import { useState, useEffect } from 'react';
 import { useTelegramUser } from '@/hooks/useTelegramUser';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Calendar, Trello, PieChart, CheckSquare, Sparkles, ArrowRight, Zap } from 'lucide-react';
+import { Calendar, Trello, PieChart, CheckSquare, Sparkles, ArrowRight, ShieldCheck, Settings } from 'lucide-react';
 import Link from 'next/link';
 ⋮----
 export default function HomePage()
-</file>
-
-<file path="frontend/src/components/charts/FinanceCharts.tsx">
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from 'recharts';
-</file>
-
-<file path="frontend/src/components/ui/Button.tsx">
-import React from 'react';
-import { triggerHaptic } from '@/lib/telegram';
-⋮----
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'danger';
-  children: React.ReactNode;
-}
-⋮----
-export function Button(
-⋮----
-const handleClick = (e: React.MouseEvent<HTMLButtonElement>) =>
 </file>
 
 <file path="frontend/src/components/ui/Card.tsx">
@@ -358,40 +1365,9 @@ interface CardProps {
   className?: string;
   title?: string;
   icon?: React.ReactNode;
+  style?: React.CSSProperties;
+  onClick?: () => void;
 }
-</file>
-
-<file path="frontend/src/components/ui/Modal.tsx">
-import React from 'react';
-import { X } from 'lucide-react';
-import { triggerHaptic } from '@/lib/telegram';
-⋮----
-interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}
-⋮----
-export function Modal(
-⋮----
-const handleClose = () =>
-</file>
-
-<file path="frontend/src/components/ui/Navbar.tsx">
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Calendar, Trello, PieChart, CheckSquare, BookOpen } from 'lucide-react';
-import { triggerHaptic } from '@/lib/telegram';
-⋮----
-export function Navbar()
-⋮----
-onClick=
-</file>
-
-<file path="frontend/src/lib/api_client.ts">
-import axios from 'axios';
-import { getTelegramInitData } from './telegram';
 </file>
 
 <file path="frontend/src/lib/telegram.ts">
@@ -424,10 +1400,6 @@ interface Window {
   }
 </file>
 
-<file path="frontend/next-env.d.ts">
-
-</file>
-
 <file path="frontend/next.config.js">
 async headers()
 </file>
@@ -445,13 +1417,16 @@ async headers()
   },
   "dependencies": {
     "@telegram-apps/sdk-react": "^3.3.9",
+    "@types/leaflet": "^1.9.21",
     "axios": "^1.6.8",
     "clsx": "^2.1.0",
     "framer-motion": "^11.0.8",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.359.0",
     "next": "14.1.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-leaflet": "^4.2.1",
     "recharts": "^2.12.3",
     "tailwind-merge": "^2.2.1"
   },
@@ -467,56 +1442,15 @@ async headers()
 }
 </file>
 
-<file path="frontend/postcss.config.js">
-
-</file>
-
 <file path="frontend/tailwind.config.js">
 
-</file>
-
-<file path="frontend/tsconfig.json">
-{
-  "compilerOptions": {
-    "target": "es5",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
-}
-</file>
-
-<file path="frontend/vercel.json">
-{
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "framework": "nextjs"
-}
 </file>
 
 <file path=".env.example">
 # TELEGRAM BOT CONFIGURATION
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
 MI_TELEGRAM_ID=123456789
+DEV_TELEGRAM_ID=123456789
 TELEGRAM_WEBHOOK_URL=https://your-backend.onrender.com/bot/webhook
 
 # GOOGLE GEMINI AI CONFIGURATION
@@ -532,435 +1466,6 @@ ENVIRONMENT=development
 PORT=8000
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=YourSaaSBot
-</file>
-
-<file path=".gitignore">
-# Environment files (CRITICAL: NEVER COMMIT SECRETS)
-.env
-.env.local
-.env.*.local
-
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/build/
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# IDE / OS
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-</file>
-
-<file path="AGENTS.md">
-# 🤖 INSTRUCCIONES DEL SISTEMA Y REGLAS DEL AGENTE (AGENTS.md)
-
-## 📌 PROPÓSITO DEL PROYECTO
-Este repositorio contiene la arquitectura completa de producción para un **SaaS de Productividad Personal Notion-like alojado en Telegram**.
-
-## 🏗️ ARQUITECTURA GENERAL
-1. **Backend (`/backend`)**:
-   - Framework: **FastAPI** (Python 3.10+)
-   - Autenticación: Middleware HMAC-SHA256 para `Telegram initData`
-   - Motor de IA: **Google Gemini 1.5 Flash** con **Function Calling** nativo.
-   - Base de Datos: **Supabase PostgreSQL** con Row Level Security (RLS).
-   - Bot Conversacional: `python-telegram-bot` (asíncrono).
-
-2. **Frontend (`/frontend`)**:
-   - Framework: **Next.js 14 (App Router)**
-   - Estilos: **Tailwind CSS** + Variables CSS dinámicas del tema Telegram (`--tg-theme-*`).
-   - Componentes: Lucide React, Framer Motion, Recharts.
-   - SDK Telegram: `@telegram-apps/sdk-react`.
-
-## 🛡️ REGLAS DE SEGURIDAD
-- Ningún endpoint de FastAPI puede responder sin validar las cabeceras `Authorization` o `Telegram-Init-Data`.
-- La clave `SERVICE_ROLE_KEY` de Supabase solo debe usarse en operaciones administrativas de backend.
-- Nunca commitear credenciales o secretos en `.env`.
-</file>
-
-<file path="docker-compose.yml">
-version: '3.8'
-
-services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    volumes:
-      - ./backend:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-    volumes:
-      - ./frontend:/app
-      - /app/.next
-    command: npm run dev
-</file>
-
-<file path="backend/ai/engine.py">
-class GeminiAIEngine
-⋮----
-def __init__(self)
-⋮----
-async def process_message(self, telegram_id: int, user_message: str) -> str
-⋮----
-response = self.client.models.generate_content(
-⋮----
-msg_lower = user_message.lower()
-⋮----
-res = add_calendar_event(telegram_id, user_message, "2026-07-27T15:00:00Z", "2026-07-27T16:00:00Z")
-⋮----
-res = create_kanban_task(telegram_id, user_message)
-⋮----
-res = record_transaction(telegram_id, "expense", 25.00, "General", user_message)
-⋮----
-res = log_habit(telegram_id, user_message)
-⋮----
-ai_engine = GeminiAIEngine()
-</file>
-
-<file path="backend/ai/tools.py">
-def add_calendar_event(telegram_id: int, title: str, start_time: str, end_time: str, description: str = "", category: str = "general") -> Dict[str, Any]
-⋮----
-event_data = {
-⋮----
-loop = asyncio.get_event_loop()
-⋮----
-res = pool.submit(asyncio.run, db_service.add_event(event_data)).result()
-⋮----
-res = loop.run_until_complete(db_service.add_event(event_data))
-⋮----
-res = event_data
-⋮----
-def create_kanban_task(telegram_id: int, title: str, description: str = "", status: str = "todo", priority: str = "medium", due_date: str = None) -> Dict[str, Any]
-⋮----
-task_data = {
-⋮----
-res = pool.submit(asyncio.run, db_service.add_task(task_data)).result()
-⋮----
-res = loop.run_until_complete(db_service.add_task(task_data))
-⋮----
-res = task_data
-⋮----
-def record_transaction(telegram_id: int, type: str, amount: float, category: str, description: str = "") -> Dict[str, Any]
-⋮----
-finance_data = {
-⋮----
-res = pool.submit(asyncio.run, db_service.add_finance(finance_data)).result()
-⋮----
-res = loop.run_until_complete(db_service.add_finance(finance_data))
-⋮----
-res = finance_data
-⋮----
-def log_habit(telegram_id: int, habit_title: str) -> Dict[str, Any]
-⋮----
-def save_memory(telegram_id: int, category: str, fact_key: str, fact_value: str) -> Dict[str, Any]
-⋮----
-TOOL_FUNCTIONS = [
-</file>
-
-<file path="backend/api/endpoints/finance.py">
-router = APIRouter(prefix="/finance", tags=["Finance"])
-⋮----
-@router.get("/records")
-async def get_records(user: Dict[str, Any] = Depends(get_current_telegram_user))
-⋮----
-records = await db_service.get_user_finances(user["telegram_id"])
-⋮----
-@router.post("/records")
-async def create_record(record_data: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_telegram_user))
-⋮----
-new_record = await db_service.add_finance(record_data)
-</file>
-
-<file path="backend/api/endpoints/habits.py">
-router = APIRouter(prefix="/habits", tags=["Habits"])
-⋮----
-@router.get("/")
-async def get_habits(user: Dict[str, Any] = Depends(get_current_telegram_user))
-⋮----
-habits = await db_service.get_user_habits(user["telegram_id"])
-⋮----
-@router.post("/")
-async def create_habit(habit_data: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_telegram_user))
-⋮----
-new_habit = await db_service.add_habit(habit_data)
-</file>
-
-<file path="backend/api/endpoints/kanban.py">
-router = APIRouter(prefix="/kanban", tags=["Kanban"])
-⋮----
-@router.get("/tasks")
-async def get_tasks(user: Dict[str, Any] = Depends(get_current_telegram_user))
-⋮----
-tasks = await db_service.get_user_tasks(user["telegram_id"])
-⋮----
-@router.post("/tasks")
-async def create_task(task_data: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_telegram_user))
-⋮----
-new_task = await db_service.add_task(task_data)
-</file>
-
-<file path="backend/api/endpoints/wiki.py">
-router = APIRouter(prefix="/wiki", tags=["Wiki"])
-⋮----
-@router.get("/notes")
-async def get_notes(user: Dict[str, Any] = Depends(get_current_telegram_user))
-⋮----
-notes = await db_service.get_user_wiki(user["telegram_id"])
-⋮----
-@router.post("/notes")
-async def create_note(note_data: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_telegram_user))
-⋮----
-new_note = await db_service.add_wiki(note_data)
-</file>
-
-<file path="backend/api/router.py">
-api_router = APIRouter(prefix="/api")
-</file>
-
-<file path="backend/bot/handlers_chat.py">
-async def handle_start_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
-⋮----
-user = update.effective_user
-welcome_text = (
-⋮----
-async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
-⋮----
-text = update.message.text
-response_text = await ai_engine.process_message(user.id, text)
-</file>
-
-<file path="backend/bot/telegram_bot.py">
-def create_telegram_bot_app() -> Application
-⋮----
-app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
-</file>
-
-<file path="backend/database.py">
-IN_MEMORY_DB: Dict[str, List[Dict[str, Any]]] = {
-⋮----
-class SupabaseService
-⋮----
-def __init__(self)
-⋮----
-async def get_user_events(self, telegram_id: int) -> List[Dict[str, Any]]
-⋮----
-res = self.client.table("calendar_events").select("*").eq("telegram_id", telegram_id).execute()
-⋮----
-async def add_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]
-⋮----
-res = self.client.table("calendar_events").insert(event_data).execute()
-⋮----
-async def get_user_tasks(self, telegram_id: int) -> List[Dict[str, Any]]
-⋮----
-res = self.client.table("kanban_tasks").select("*").eq("telegram_id", telegram_id).execute()
-⋮----
-async def add_task(self, task_data: Dict[str, Any]) -> Dict[str, Any]
-⋮----
-res = self.client.table("kanban_tasks").insert(task_data).execute()
-⋮----
-async def get_user_finances(self, telegram_id: int) -> List[Dict[str, Any]]
-⋮----
-res = self.client.table("financial_records").select("*").eq("telegram_id", telegram_id).execute()
-⋮----
-async def add_finance(self, finance_data: Dict[str, Any]) -> Dict[str, Any]
-⋮----
-res = self.client.table("financial_records").insert(finance_data).execute()
-⋮----
-async def get_user_habits(self, telegram_id: int) -> List[Dict[str, Any]]
-⋮----
-res = self.client.table("habits").select("*").eq("telegram_id", telegram_id).execute()
-⋮----
-async def add_habit(self, habit_data: Dict[str, Any]) -> Dict[str, Any]
-⋮----
-res = self.client.table("habits").insert(habit_data).execute()
-⋮----
-async def get_user_wiki(self, telegram_id: int) -> List[Dict[str, Any]]
-⋮----
-res = self.client.table("wiki_notes").select("*").eq("telegram_id", telegram_id).execute()
-⋮----
-async def add_wiki(self, note_data: Dict[str, Any]) -> Dict[str, Any]
-⋮----
-res = self.client.table("wiki_notes").insert(note_data).execute()
-⋮----
-db_service = SupabaseService()
-</file>
-
-<file path="backend/main.py">
-current_dir = Path(__file__).resolve().parent
-parent_dir = current_dir.parent
-⋮----
-app = FastAPI(
-⋮----
-@app.on_event("startup")
-async def on_startup()
-⋮----
-@app.get("/")
-async def root()
-⋮----
-@app.post("/bot/webhook")
-async def telegram_webhook(request: Request)
-⋮----
-data = await request.json()
-</file>
-
-<file path="backend/security.py">
-header_scheme = APIKeyHeader(name="Authorization", auto_error=False)
-⋮----
-def validate_telegram_init_data(init_data_raw: str, bot_token: str, max_age_seconds: int = 86400) -> Dict[str, Any]
-⋮----
-init_data_raw = init_data_raw[4:]
-⋮----
-init_data_raw = init_data_raw[7:]
-⋮----
-parsed_data = dict(parse_qsl(init_data_raw, keep_blank_values=True))
-⋮----
-received_hash = parsed_data.pop("hash", None)
-⋮----
-auth_date = int(parsed_data.get("auth_date", 0))
-⋮----
-data_check_lines = [f"{k}={v}" for k, v in sorted(parsed_data.items())]
-data_check_string = "\n".join(data_check_lines)
-⋮----
-secret_key = hmac.new(
-⋮----
-calculated_hash = hmac.new(
-⋮----
-user_json_str = parsed_data.get("user")
-⋮----
-raw_token = tma_init_data or authorization
-⋮----
-validated_data = validate_telegram_init_data(raw_token, settings.TELEGRAM_BOT_TOKEN)
-user_obj = validated_data.get("user_obj", {})
-telegram_id = user_obj.get("id")
-⋮----
-user_raw = validated_data.get("user")
-⋮----
-u_dict = json.loads(user_raw)
-telegram_id = u_dict.get("id")
-⋮----
-telegram_id = 5634360549
-</file>
-
-<file path="frontend/src/app/habits/page.tsx">
-import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
-import { CheckSquare, Flame, Plus, Check, Trash2 } from 'lucide-react';
-import { triggerHaptic } from '@/lib/telegram';
-import { apiClient } from '@/lib/api_client';
-⋮----
-interface Habit {
-  id: string;
-  title: string;
-  streak: number;
-  completedToday: boolean;
-}
-⋮----
-const toggleHabit = (id: string) =>
-⋮----
-const handleDelete = (id: string) =>
-⋮----
-const handleCreate = (e: React.FormEvent) =>
-⋮----
-<Button onClick=
-⋮----
-onClick=
-⋮----
-<button onClick=
-</file>
-
-<file path="frontend/src/app/kanban/page.tsx">
-import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
-import { Trello, Plus, AlertCircle, CheckCircle2, Clock, Trash2 } from 'lucide-react';
-import { triggerHaptic } from '@/lib/telegram';
-import { apiClient } from '@/lib/api_client';
-⋮----
-interface KanbanTask {
-  id: string;
-  title: string;
-  status: 'todo' | 'in_progress' | 'done';
-  priority: 'baja' | 'media' | 'alta' | 'urgente';
-}
-⋮----
-const moveTask = (id: string, newStatus: 'todo' | 'in_progress' | 'done') =>
-⋮----
-const handleDelete = (id: string) =>
-⋮----
-const handleCreate = (e: React.FormEvent) =>
-⋮----
-<Button onClick=
-⋮----
-onClick=
-</file>
-
-<file path="frontend/src/app/wiki/page.tsx">
-import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
-import { BookOpen, Plus, FileText, Search, Trash2 } from 'lucide-react';
-import { triggerHaptic } from '@/lib/telegram';
-import { apiClient } from '@/lib/api_client';
-⋮----
-interface WikiNote {
-  id: string;
-  title: string;
-  tags: string[];
-  content: string;
-  updatedAt: string;
-}
-⋮----
-const handleCreate = (e: React.FormEvent) =>
-⋮----
-const handleDelete = (id: string) =>
-⋮----
-<Button onClick=
-⋮----
-onChange=
-⋮----
-onClick=
-</file>
-
-<file path="frontend/src/hooks/useTelegramUser.ts">
-import { useState, useEffect } from 'react';
-import { TelegramUser, triggerHaptic } from '@/lib/telegram';
-⋮----
-export function useTelegramUser()
 </file>
 
 <file path="render.yaml">
@@ -1004,18 +1509,829 @@ services:
 }
 </file>
 
+<file path="backend/ai/engine.py">
+genai = None
+types = None
+⋮----
+logger = logging.getLogger(__name__)
+⋮----
+class GeminiAIEngine
+⋮----
+def __init__(self)
+⋮----
+api_key = getattr(settings, 'GEMINI_API_KEY', None) or os.getenv("GEMINI_API_KEY")
+⋮----
+async def _get_user_timezone(self, telegram_id: int) -> str
+⋮----
+res = db_service.client.table("users").select("timezone").eq("telegram_id", telegram_id).execute()
+⋮----
+async def _get_conversation_history(self, telegram_id: int, limit: int = 10) -> List[Dict[str, Any]]
+⋮----
+async def process_message(self, telegram_id: int, user_message: str) -> str
+⋮----
+user_timezone = await self._get_user_timezone(telegram_id)
+system_prompt = get_system_prompt(user_timezone)
+⋮----
+contents = [
+⋮----
+tools = [types.Tool(function_declarations=TOOL_DECLARATIONS)]
+⋮----
+config = types.GenerateContentConfig(
+⋮----
+response = self.client.models.generate_content(
+⋮----
+function_calls = []
+⋮----
+function_responses = []
+⋮----
+tool_name = fc.name
+tool_args = dict(fc.args)
+⋮----
+result = await TOOL_FUNCTIONS_MAP[tool_name](**tool_args)
+⋮----
+function_response_parts = []
+⋮----
+final_response = self.client.models.generate_content(
+⋮----
+# Fallback to rule-based processing
+⋮----
+async def _fallback_process(self, telegram_id: int, user_message: str) -> str
+⋮----
+"""Fallback rule-based processing when Gemini is not available."""
+msg = user_message.lower()
+⋮----
+# Calendar events
+⋮----
+async def _fallback_calendar(self, telegram_id: int, user_message: str) -> str
+⋮----
+"""Basic calendar fallback - create a simple event."""
+⋮----
+# Simple extraction attempt
+tz = ZoneInfo("America/Argentina/Buenos_Aires")
+now = datetime.now(tz)
+tomorrow = now + timedelta(days=1)
+start = tomorrow.replace(hour=15, minute=0, second=0, microsecond=0)
+end = start + timedelta(hours=1)
+⋮----
+event = {
+result = await db_service.add_event(event)
+⋮----
+async def _fallback_kanban(self, telegram_id: int, user_message: str) -> str
+⋮----
+"""Basic Kanban fallback."""
+task = {
+result = await db_service.add_task(task)
+⋮----
+async def _fallback_finance(self, telegram_id: int, user_message: str) -> str
+⋮----
+"""Basic finance fallback."""
+⋮----
+amounts = re.findall(r'[\d,]+\.?\d*', user_message.replace(',', ''))
+amount = float(amounts[0]) if amounts else 25.0
+⋮----
+record = {
+result = await db_service.add_finance(record)
+⋮----
+async def _fallback_habit(self, telegram_id: int, user_message: str) -> str
+⋮----
+"""Basic habit fallback."""
+habits = await db_service.get_user_habits(telegram_id)
+⋮----
+habit = habits[0]
+result = await db_service.log_habit_completion(habit["id"], telegram_id, datetime.now().date().isoformat())
+⋮----
+async def _fallback_memory(self, telegram_id: int, user_message: str) -> str
+⋮----
+"""Basic memory fallback."""
+⋮----
+ai_engine = GeminiAIEngine()
+</file>
+
+<file path="backend/api/endpoints/finance.py">
+router = APIRouter(prefix="/finance", tags=["finance"])
+⋮----
+class FinanceRecordCreate(BaseModel)
+⋮----
+type: str
+amount: float
+category: str
+description: Optional[str] = ""
+record_date: date
+⋮----
+class FinanceRecordUpdate(BaseModel)
+⋮----
+type: Optional[str] = None
+amount: Optional[float] = None
+category: Optional[str] = None
+description: Optional[str] = None
+record_date: Optional[date] = None
+⋮----
+@router.get("/records")
+async def get_records(user: dict = Depends(get_current_telegram_user))
+⋮----
+records = await db_service.get_user_finances(user["telegram_id"])
+⋮----
+@router.post("/records")
+async def create_record(record: FinanceRecordCreate, user: dict = Depends(get_current_telegram_user))
+⋮----
+record_data = record.model_dump()
+⋮----
+result = await db_service.add_finance(record_data)
+⋮----
+@router.patch("/records/{record_id}")
+async def update_record(record_id: str, record: FinanceRecordUpdate, user: dict = Depends(get_current_telegram_user))
+⋮----
+update_data = {k: v for k, v in record.model_dump().items() if v is not None}
+⋮----
+result = await db_service.update_finance(record_id, user["telegram_id"], update_data)
+⋮----
+@router.delete("/records/{record_id}")
+async def delete_record(record_id: str, user: dict = Depends(get_current_telegram_user))
+</file>
+
+<file path="backend/api/endpoints/habits.py">
+router = APIRouter(prefix="/habits", tags=["habits"])
+⋮----
+class HabitCreate(BaseModel)
+⋮----
+title: str
+target_frequency: str = "daily"
+⋮----
+class HabitUpdate(BaseModel)
+⋮----
+title: Optional[str] = None
+target_frequency: Optional[str] = None
+⋮----
+class HabitLogCreate(BaseModel)
+⋮----
+completed_date: date
+⋮----
+@router.get("/")
+async def get_habits(user: dict = Depends(get_current_telegram_user))
+⋮----
+habits = await db_service.get_user_habits(user["telegram_id"])
+⋮----
+@router.post("/")
+async def create_habit(habit: HabitCreate, user: dict = Depends(get_current_telegram_user))
+⋮----
+habit_data = habit.model_dump()
+⋮----
+result = await db_service.add_habit(habit_data)
+⋮----
+@router.patch("/{habit_id}")
+async def update_habit(habit_id: str, habit: HabitUpdate, user: dict = Depends(get_current_telegram_user))
+⋮----
+update_data = {k: v for k, v in habit.model_dump().items() if v is not None}
+⋮----
+result = await db_service.update_habit(habit_id, user["telegram_id"], update_data)
+⋮----
+@router.delete("/{habit_id}")
+async def delete_habit(habit_id: str, user: dict = Depends(get_current_telegram_user))
+⋮----
+@router.post("/{habit_id}/log")
+async def log_habit(habit_id: str, log: HabitLogCreate, user: dict = Depends(get_current_telegram_user))
+⋮----
+result = await db_service.log_habit_completion(habit_id, user["telegram_id"], log.completed_date)
+</file>
+
+<file path="backend/api/endpoints/kanban.py">
+router = APIRouter(prefix="/kanban", tags=["kanban"])
+⋮----
+class KanbanTaskCreate(BaseModel)
+⋮----
+title: str
+description: Optional[str] = ""
+status: Optional[str] = "todo"
+priority: Optional[str] = "medium"
+due_date: Optional[datetime] = None
+⋮----
+class KanbanTaskUpdate(BaseModel)
+⋮----
+title: Optional[str] = None
+description: Optional[str] = None
+status: Optional[str] = None
+priority: Optional[str] = None
+⋮----
+@router.get("/tasks")
+async def get_tasks(user: dict = Depends(get_current_telegram_user))
+⋮----
+tasks = await db_service.get_user_tasks(user["telegram_id"])
+⋮----
+@router.post("/tasks")
+async def create_task(task: KanbanTaskCreate, user: dict = Depends(get_current_telegram_user))
+⋮----
+task_data = task.model_dump()
+⋮----
+result = await db_service.add_task(task_data)
+⋮----
+@router.patch("/tasks/{task_id}")
+async def update_task(task_id: str, task: KanbanTaskUpdate, user: dict = Depends(get_current_telegram_user))
+⋮----
+update_data = {k: v for k, v in task.model_dump().items() if v is not None}
+⋮----
+result = await db_service.update_task(task_id, user["telegram_id"], update_data)
+⋮----
+@router.delete("/tasks/{task_id}")
+async def delete_task(task_id: str, user: dict = Depends(get_current_telegram_user))
+</file>
+
+<file path="backend/api/endpoints/wiki.py">
+router = APIRouter(prefix="/wiki", tags=["wiki"])
+⋮----
+class WikiNoteCreate(BaseModel)
+⋮----
+title: str
+content_json: dict
+tags: Optional[List[str]] = []
+⋮----
+class WikiNoteUpdate(BaseModel)
+⋮----
+title: Optional[str] = None
+content_json: Optional[dict] = None
+tags: Optional[List[str]] = None
+⋮----
+@router.get("/notes")
+async def get_notes(user: dict = Depends(get_current_telegram_user))
+⋮----
+notes = await db_service.get_user_wiki(user["telegram_id"])
+⋮----
+@router.post("/notes")
+async def create_note(note: WikiNoteCreate, user: dict = Depends(get_current_telegram_user))
+⋮----
+note_data = note.model_dump()
+⋮----
+result = await db_service.add_wiki(note_data)
+⋮----
+@router.patch("/notes/{note_id}")
+async def update_note(note_id: str, note: WikiNoteUpdate, user: dict = Depends(get_current_telegram_user))
+⋮----
+update_data = {k: v for k, v in note.model_dump().items() if v is not None}
+⋮----
+result = await db_service.update_wiki(note_id, user["telegram_id"], update_data)
+⋮----
+@router.delete("/notes/{note_id}")
+async def delete_note(note_id: str, user: dict = Depends(get_current_telegram_user))
+</file>
+
+<file path="backend/bot/scheduler.py">
+logger = logging.getLogger(__name__)
+⋮----
+scheduler = AsyncIOScheduler()
+⋮----
+DEFAULT_REMINDER = {
+⋮----
+REMINDER_MESSAGES = {
+⋮----
+def _get_reminder_minutes(category: str) -> int
+⋮----
+cat_lower = (category or "").lower()
+⋮----
+async def _send_telegram_message(telegram_id: int, text: str)
+⋮----
+"""Send a message via Telegram bot safely with fallback."""
+⋮----
+app = get_bot_app()
+⋮----
+def _parse_iso_datetime(dt_str: str) -> datetime | None
+⋮----
+dt_clean = dt_str.replace("Z", "+00:00")
+dt = datetime.fromisoformat(dt_clean)
+⋮----
+dt = dt.replace(tzinfo=timezone.utc)
+⋮----
+async def poll_reminders()
+⋮----
+"""Poll database and in-memory events for pending reminders every minute."""
+⋮----
+now_utc = datetime.now(timezone.utc)
+⋮----
+events = await db_service.get_pending_reminders()
+⋮----
+event_id = event.get("id")
+telegram_id = event.get("telegram_id")
+title = event.get("title", "Evento")
+start_str = event.get("start_time", "")
+⋮----
+start_dt = _parse_iso_datetime(start_str)
+⋮----
+reminder_min = event.get("reminder_minutes_before")
+⋮----
+reminder_min = _get_reminder_minutes(event.get("category", ""))
+⋮----
+reminder_time = start_dt - timedelta(minutes=reminder_min)
+⋮----
+# Trigger reminder if now_utc >= reminder_time and event hasn't expired > 30 mins
+⋮----
+time_display = start_dt.strftime("%H:%M UTC")
+msg_template = REMINDER_MESSAGES.get(reminder_min, REMINDER_MESSAGES[None])
+text = msg_template.format(title=title, time=time_display)
+⋮----
+def start_scheduler()
+⋮----
+"""Start APScheduler with reminder polling."""
+</file>
+
+<file path="backend/config.py">
+class Settings(BaseSettings)
+⋮----
+TELEGRAM_BOT_TOKEN: str = "TELEGRAM_BOT_TOKEN_PLACEHOLDER"
+MI_TELEGRAM_ID: Optional[int] = None
+DEV_TELEGRAM_ID: Optional[int] = None
+TELEGRAM_WEBHOOK_URL: str = "https://notion-telegram-saas.onrender.com/bot/webhook"
+GEMINI_API_KEY: str = "GEMINI_API_KEY_PLACEHOLDER"
+SUPABASE_URL: str = "https://your-project.supabase.co"
+SUPABASE_ANON_KEY: str = "SUPABASE_ANON_KEY_PLACEHOLDER"
+SUPABASE_SERVICE_ROLE_KEY: str = "SUPABASE_SERVICE_ROLE_KEY_PLACEHOLDER"
+ENVIRONMENT: str = "production"
+PORT: int = 8000
+NEXT_PUBLIC_API_URL: str = "https://notion-telegram-saas.onrender.com"
+⋮----
+model_config = SettingsConfigDict(
+⋮----
+settings = Settings()
+</file>
+
+<file path="backend/security.py">
+header_scheme = APIKeyHeader(name="Authorization", auto_error=False)
+⋮----
+logger = logging.getLogger(__name__)
+⋮----
+def validate_telegram_init_data(init_data_raw: str, bot_token: str, max_age_seconds: int = 86400) -> Dict[str, Any]
+⋮----
+init_data_raw = init_data_raw[4:]
+⋮----
+init_data_raw = init_data_raw[7:]
+⋮----
+parsed_data = dict(parse_qsl(init_data_raw, keep_blank_values=True))
+⋮----
+received_hash = parsed_data.pop("hash", None)
+⋮----
+auth_date = int(parsed_data.get("auth_date", 0))
+⋮----
+data_check_lines = [f"{k}={v}" for k, v in sorted(parsed_data.items())]
+data_check_string = "\n".join(data_check_lines)
+⋮----
+secret_key = hmac.new(
+⋮----
+calculated_hash = hmac.new(
+⋮----
+user_json_str = parsed_data.get("user")
+⋮----
+raw_token = tma_init_data or authorization
+⋮----
+is_dev = settings.ENVIRONMENT == "development"
+⋮----
+validated_data = validate_telegram_init_data(raw_token, settings.TELEGRAM_BOT_TOKEN)
+user_obj = validated_data.get("user_obj", {})
+telegram_id = user_obj.get("id")
+⋮----
+user_raw = validated_data.get("user")
+⋮----
+u_dict = json.loads(user_raw)
+telegram_id = u_dict.get("id")
+⋮----
+telegram_id = settings.DEV_TELEGRAM_ID
+</file>
+
+<file path="frontend/src/app/habits/page.tsx">
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { CheckSquare, Flame, Plus, Check, Trash2 } from 'lucide-react';
+import { triggerHaptic } from '@/lib/telegram';
+import { apiClient } from '@/lib/api_client';
+⋮----
+interface Habit {
+  id: string;
+  title: string;
+  streak: number;
+  completedToday: boolean;
+}
+⋮----
+// 1. Instant local memory load
+⋮----
+// 2. Sync with API
+⋮----
+const savePersistent = (newList: Habit[]) =>
+⋮----
+const toggleHabit = (id: string) =>
+⋮----
+const handleDelete = (id: string) =>
+⋮----
+const handleCreate = (e: React.FormEvent) =>
+⋮----
+<Button onClick=
+⋮----
+onClick=
+⋮----
+<button onClick=
+</file>
+
+<file path="frontend/src/app/kanban/page.tsx">
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { Trello, Plus, AlertCircle, CheckCircle2, Clock, Trash2 } from 'lucide-react';
+import { triggerHaptic } from '@/lib/telegram';
+import { apiClient } from '@/lib/api_client';
+⋮----
+interface KanbanTask {
+  id: string;
+  title: string;
+  status: 'todo' | 'in_progress' | 'done';
+  priority: 'baja' | 'media' | 'alta' | 'urgente';
+}
+⋮----
+const savePersistent = (newList: KanbanTask[]) =>
+⋮----
+const moveTask = (id: string, newStatus: 'todo' | 'in_progress' | 'done') =>
+⋮----
+const handleDelete = (id: string) =>
+⋮----
+const handleCreate = (e: React.FormEvent) =>
+⋮----
+<Button onClick=
+⋮----
+onClick=
+</file>
+
+<file path="frontend/src/app/wiki/page.tsx">
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { BookOpen, Plus, FileText, Search, Trash2 } from 'lucide-react';
+import { triggerHaptic } from '@/lib/telegram';
+import { apiClient } from '@/lib/api_client';
+⋮----
+interface WikiNote {
+  id: string;
+  title: string;
+  tags: string[];
+  content: string;
+  updatedAt: string;
+}
+⋮----
+export default function WikiPage()
+⋮----
+// 1. Instant local memory load
+⋮----
+// 2. Sync with API
+⋮----
+const savePersistent = (newList: WikiNote[]) =>
+⋮----
+const handleCreate = (e: React.FormEvent) =>
+⋮----
+const handleDelete = (id: string) =>
+⋮----
+<Button onClick=
+⋮----
+onChange=
+⋮----
+onClick=
+</file>
+
+<file path="frontend/src/components/charts/FinanceCharts.tsx">
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, Legend } from 'recharts';
+⋮----
+export interface FinanceRecord {
+  id: string;
+  type: 'income' | 'expense';
+  amount: number;
+  category: string;
+  description: string;
+}
+⋮----
+interface FinanceChartsProps {
+  records: FinanceRecord[];
+}
+</file>
+
+<file path="frontend/src/components/ui/Navbar.tsx">
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { LayoutDashboard, Calendar, Trello, PieChart, CheckSquare, BookOpen, Settings, Key } from 'lucide-react';
+import { triggerHaptic } from '@/lib/telegram';
+⋮----
+export function Navbar()
+⋮----
+onClick=
+</file>
+
+<file path="frontend/src/hooks/useTelegramUser.ts">
+import { useState, useEffect } from 'react';
+import { TelegramUser, triggerHaptic } from '@/lib/telegram';
+⋮----
+export function useTelegramUser()
+</file>
+
+<file path="backend/ai/tools.py">
+event_data = {
+result = await db_service.add_event(event_data)
+⋮----
+task_data = {
+result = await db_service.add_task(task_data)
+⋮----
+"""Record a financial transaction (income or expense)."""
+finance_data = {
+result = await db_service.add_finance(finance_data)
+⋮----
+"""Log a habit completion and recalculate streak."""
+⋮----
+completed_date = datetime.now().date().isoformat()
+⋮----
+habits = await db_service.get_user_habits(telegram_id)
+habit = next((h for h in habits if h.get("title", "").lower() == habit_title.lower()), None)
+⋮----
+# Auto-create habit if missing
+new_h = await db_service.add_habit({"telegram_id": telegram_id, "title": habit_title, "target_frequency": "daily", "streak_count": 1})
+⋮----
+result = await db_service.log_habit_completion(habit["id"], telegram_id, completed_date)
+⋮----
+"""Save a password entry in the secure vault."""
+pwd_data = {
+result = await db_service.add_password(pwd_data)
+⋮----
+# Tool function declarations for Gemini (JSON schema format)
+TOOL_DECLARATIONS = [
+⋮----
+TOOL_FUNCTIONS_MAP = {
+</file>
+
 <file path="backend/api/endpoints/calendar.py">
-router = APIRouter(prefix="/calendar", tags=["Calendar"])
+router = APIRouter(prefix="/calendar", tags=["calendar"])
+⋮----
+class CalendarEventCreate(BaseModel)
+⋮----
+title: str
+description: Optional[str] = ""
+start_time: datetime
+end_time: datetime
+category: Optional[str] = "general"
+is_all_day: Optional[bool] = False
+⋮----
+class CalendarEventUpdate(BaseModel)
+⋮----
+title: Optional[str] = None
+description: Optional[str] = None
+start_time: Optional[datetime] = None
+end_time: Optional[datetime] = None
+category: Optional[str] = None
+is_all_day: Optional[bool] = None
 ⋮----
 @router.get("/events")
-async def get_events(user: Dict[str, Any] = Depends(get_current_telegram_user))
+async def get_events(user: dict = Depends(get_current_telegram_user))
 ⋮----
 events = await db_service.get_user_events(user["telegram_id"])
 ⋮----
 @router.post("/events")
-async def create_event(event_data: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_telegram_user))
+async def create_event(event: CalendarEventCreate, user: dict = Depends(get_current_telegram_user))
 ⋮----
-new_event = await db_service.add_event(event_data)
+event_data = event.model_dump()
+⋮----
+result = await db_service.add_event(event_data)
+⋮----
+@router.patch("/events/{event_id}")
+async def update_event(event_id: str, event: CalendarEventUpdate, user: dict = Depends(get_current_telegram_user))
+⋮----
+update_data = {k: v for k, v in event.model_dump().items() if v is not None}
+⋮----
+result = await db_service.update_event(event_id, user["telegram_id"], update_data)
+⋮----
+@router.delete("/events/{event_id}")
+async def delete_event(event_id: str, user: dict = Depends(get_current_telegram_user))
+</file>
+
+<file path="backend/api/router.py">
+api_router = APIRouter(prefix="/api")
+</file>
+
+<file path="backend/bot/handlers_chat.py">
+logger = logging.getLogger(__name__)
+⋮----
+async def send_safe_reply(update: Update, text: str)
+⋮----
+async def handle_start_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
+⋮----
+user = update.effective_user
+first_name = user.first_name if user else "Usuario"
+welcome_text = (
+⋮----
+async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
+⋮----
+user_id = update.effective_user.id
+text = update.effective_message.text.strip()
+⋮----
+response_text = await ai_engine.process_message(user_id, text)
+⋮----
+fallback_msg = f"✅ Registré tu solicitud: '{text}'. Abre la Mini App para ver tus cambios."
+</file>
+
+<file path="backend/bot/telegram_bot.py">
+logger = logging.getLogger(__name__)
+⋮----
+_app_instance: Application | None = None
+⋮----
+def create_telegram_bot_app() -> Application | None
+⋮----
+token = settings.TELEGRAM_BOT_TOKEN
+⋮----
+app = Application.builder().token(token).build()
+⋮----
+_app_instance = app
+⋮----
+def get_bot_app() -> Application | None
+</file>
+
+<file path="backend/database.py">
+_DEV_ID = settings.DEV_TELEGRAM_ID or 5634360549
+⋮----
+IN_MEMORY_DB: Dict[str, List[Dict[str, Any]]] = {
+⋮----
+class SupabaseService
+⋮----
+def __init__(self)
+⋮----
+async def get_user_events(self, telegram_id: int) -> List[Dict[str, Any]]
+⋮----
+res = self.client.table("calendar_events").select("*").eq("telegram_id", telegram_id).execute()
+⋮----
+async def add_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]
+⋮----
+res = self.client.table("calendar_events").insert(event_data).execute()
+⋮----
+async def update_event(self, event_id: str, telegram_id: int, update_data: Dict[str, Any]) -> Dict[str, Any]
+⋮----
+res = self.client.table("calendar_events").update(update_data).eq("id", event_id).eq("telegram_id", telegram_id).execute()
+⋮----
+async def delete_event(self, event_id: str, telegram_id: int) -> None
+⋮----
+res = self.client.table("calendar_events").delete().eq("id", event_id).eq("telegram_id", telegram_id).execute()
+⋮----
+async def get_pending_reminders(self) -> List[Dict[str, Any]]
+⋮----
+now = datetime.now(timezone.utc)
+pending = []
+⋮----
+res = self.client.table("calendar_events").select("*").not_.is_("reminder_minutes_before", "null").eq("reminder_sent", False).execute()
+⋮----
+start = datetime.fromisoformat(e["start_time"].replace("Z", "+00:00"))
+diff_minutes = (start - now).total_seconds() / 60
+⋮----
+async def mark_reminder_sent(self, event_id: str) -> None
+⋮----
+async def get_user_passwords(self, telegram_id: int) -> List[Dict[str, Any]]
+⋮----
+res = self.client.table("passwords").select("*").eq("telegram_id", telegram_id).order("created_at", desc=True).execute()
+⋮----
+async def add_password(self, pwd_data: Dict[str, Any]) -> Dict[str, Any]
+⋮----
+res = self.client.table("passwords").insert(pwd_data).execute()
+⋮----
+async def delete_password(self, pwd_id: str, telegram_id: int) -> None
+⋮----
+res = self.client.table("passwords").delete().eq("id", pwd_id).eq("telegram_id", telegram_id).execute()
+⋮----
+async def get_user_tasks(self, telegram_id: int) -> List[Dict[str, Any]]
+⋮----
+res = self.client.table("kanban_tasks").select("*").eq("telegram_id", telegram_id).execute()
+⋮----
+async def add_task(self, task_data: Dict[str, Any]) -> Dict[str, Any]
+⋮----
+res = self.client.table("kanban_tasks").insert(task_data).execute()
+⋮----
+async def update_task(self, task_id: str, telegram_id: int, update_data: Dict[str, Any]) -> Dict[str, Any]
+⋮----
+res = self.client.table("kanban_tasks").update(update_data).eq("id", task_id).eq("telegram_id", telegram_id).execute()
+⋮----
+async def delete_task(self, task_id: str, telegram_id: int) -> None
+⋮----
+res = self.client.table("kanban_tasks").delete().eq("id", task_id).eq("telegram_id", telegram_id).execute()
+⋮----
+async def get_user_finances(self, telegram_id: int) -> List[Dict[str, Any]]
+⋮----
+res = self.client.table("financial_records").select("*").eq("telegram_id", telegram_id).execute()
+⋮----
+async def add_finance(self, finance_data: Dict[str, Any]) -> Dict[str, Any]
+⋮----
+res = self.client.table("financial_records").insert(finance_data).execute()
+⋮----
+async def delete_finance(self, record_id: str, telegram_id: int) -> None
+⋮----
+res = self.client.table("financial_records").delete().eq("id", record_id).eq("telegram_id", telegram_id).execute()
+⋮----
+async def update_finance(self, record_id: str, telegram_id: int, update_data: Dict[str, Any]) -> Dict[str, Any]
+⋮----
+res = self.client.table("financial_records").update(update_data).eq("id", record_id).eq("telegram_id", telegram_id).execute()
+⋮----
+async def get_user_habits(self, telegram_id: int) -> List[Dict[str, Any]]
+⋮----
+res = self.client.table("habits").select("*").eq("telegram_id", telegram_id).execute()
+⋮----
+async def add_habit(self, habit_data: Dict[str, Any]) -> Dict[str, Any]
+⋮----
+res = self.client.table("habits").insert(habit_data).execute()
+⋮----
+async def delete_habit(self, habit_id: str, telegram_id: int) -> None
+⋮----
+res = self.client.table("habits").delete().eq("id", habit_id).eq("telegram_id", telegram_id).execute()
+⋮----
+async def get_user_wiki(self, telegram_id: int) -> List[Dict[str, Any]]
+⋮----
+res = self.client.table("wiki_notes").select("*").eq("telegram_id", telegram_id).execute()
+⋮----
+async def add_wiki(self, note_data: Dict[str, Any]) -> Dict[str, Any]
+⋮----
+res = self.client.table("wiki_notes").insert(note_data).execute()
+⋮----
+async def delete_wiki(self, note_id: str, telegram_id: int) -> None
+⋮----
+res = self.client.table("wiki_notes").delete().eq("id", note_id).eq("telegram_id", telegram_id).execute()
+⋮----
+async def upsert_user(self, telegram_id: int, username: str = "", first_name: str = "", timezone: str = "UTC") -> Dict[str, Any]
+⋮----
+user_data = {
+⋮----
+res = self.client.table("users").upsert(user_data, on_conflict="telegram_id").execute()
+⋮----
+async def get_user(self, telegram_id: int) -> Optional[Dict[str, Any]]
+⋮----
+res = self.client.table("users").select("*").eq("telegram_id", telegram_id).execute()
+⋮----
+async def update_user_preferences(self, telegram_id: int, update_data: Dict[str, Any]) -> Dict[str, Any]
+⋮----
+res = self.client.table("users").update(update_data).eq("telegram_id", telegram_id).execute()
+⋮----
+db_service = SupabaseService()
+</file>
+
+<file path="frontend/src/app/finance/page.tsx">
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { FinanceCharts } from '@/components/charts/FinanceCharts';
+import { PieChart, DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Wallet, Award, Percent, FolderPlus } from 'lucide-react';
+import { triggerHaptic } from '@/lib/telegram';
+import { apiClient } from '@/lib/api_client';
+⋮----
+interface FinanceRecord {
+  id: string;
+  type: 'income' | 'expense';
+  amount: number;
+  category: string;
+  description: string;
+}
+⋮----
+// 1. Instant local memory load
+⋮----
+// 2. Sync with API
+⋮----
+const savePersistent = (newList: FinanceRecord[]) =>
+⋮----
+// Advanced Financial Calculations
+⋮----
+const handleCreate = (e: React.FormEvent) =>
+⋮----
+const handleDelete = (id: string) =>
+⋮----
+<Button onClick=
+</file>
+
+<file path="backend/main.py">
+current_dir = Path(__file__).resolve().parent
+parent_dir = current_dir.parent
+⋮----
+logger = logging.getLogger(__name__)
+⋮----
+app = FastAPI(
+⋮----
+def auto_set_webhook()
+⋮----
+token = settings.TELEGRAM_BOT_TOKEN
+webhook_url = settings.TELEGRAM_WEBHOOK_URL
+⋮----
+set_url = f"https://api.telegram.org/bot{token}/setWebhook?url={webhook_url}"
+r = requests.get(set_url, timeout=5.0).json()
+⋮----
+@app.on_event("startup")
+async def on_startup()
+⋮----
+bot_app = create_telegram_bot_app()
+⋮----
+@app.get("/")
+async def root()
+⋮----
+@app.post("/bot/webhook")
+async def telegram_webhook(request: Request)
+⋮----
+bot_app = get_bot_app()
+⋮----
+data = await request.json()
+⋮----
+update = Update.de_json(data, bot_app.bot)
 </file>
 
 <file path="frontend/src/app/calendar/page.tsx">
@@ -1023,7 +2339,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { Calendar as CalendarIcon, Clock, Plus, Tag, Trash2, CalendarX } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Plus, Tag, Trash2, CalendarX, ChevronLeft, ChevronRight, Bell } from 'lucide-react';
 import { triggerHaptic } from '@/lib/telegram';
 import { apiClient } from '@/lib/api_client';
 ⋮----
@@ -1032,15 +2348,29 @@ interface CalendarEvent {
   title: string;
   time: string;
   category: string;
+  start_time?: string;
+  reminder_minutes_before?: number;
 }
+⋮----
+// Time Picker State (Exact Time String "HH:MM")
+⋮----
+const savePersistent = (newList: CalendarEvent[]) =>
 ⋮----
 const handleCreate = (e: React.FormEvent) =>
 ⋮----
 const handleDelete = (id: string) =>
 ⋮----
+const prevMonth = () =>
+⋮----
+const nextMonth = () =>
+⋮----
 <Button onClick=
 ⋮----
+onClick=
+⋮----
 <button onClick=
+⋮----
+onChange=
 </file>
 
 </files>

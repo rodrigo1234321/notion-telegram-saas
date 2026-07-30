@@ -94,12 +94,25 @@ CREATE TABLE IF NOT EXISTS wiki_notes (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 8. BÓVEDA DE CONTRASEÑAS
+CREATE TABLE IF NOT EXISTS passwords (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+    service_name VARCHAR(255) NOT NULL,
+    username VARCHAR(255),
+    password_value TEXT NOT NULL,
+    category VARCHAR(50) DEFAULT 'Personal',
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ÍNDICES DE RENDIMIENTO
 CREATE INDEX IF NOT EXISTS idx_events_user_date ON calendar_events(telegram_id, start_time);
 CREATE INDEX IF NOT EXISTS idx_tasks_user_status ON kanban_tasks(telegram_id, status);
 CREATE INDEX IF NOT EXISTS idx_finance_user_date ON financial_records(telegram_id, record_date);
 CREATE INDEX IF NOT EXISTS idx_habits_user ON habits(telegram_id);
 CREATE INDEX IF NOT EXISTS idx_wiki_user ON wiki_notes(telegram_id);
+CREATE INDEX IF NOT EXISTS idx_passwords_user ON passwords(telegram_id);
 
 -- ROW LEVEL SECURITY (RLS) POLICIES
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -110,21 +123,7 @@ ALTER TABLE financial_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE habits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE habit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wiki_notes ENABLE ROW LEVEL SECURITY;
-
--- 8. RESEÑAS LOCALES
-CREATE TABLE IF NOT EXISTS local_reviews (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
-    place_name VARCHAR(255) NOT NULL,
-    latitude DOUBLE PRECISION NOT NULL,
-    longitude DOUBLE PRECISION NOT NULL,
-    rating INT CHECK (rating BETWEEN 1 AND 5),
-    comment TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-ALTER TABLE local_reviews ENABLE ROW LEVEL SECURITY;
-CREATE POLICY service_role_all_reviews ON local_reviews FOR ALL USING (true);
+ALTER TABLE passwords ENABLE ROW LEVEL SECURITY;
 
 -- Allow service role full access
 CREATE POLICY service_role_all_users ON users FOR ALL USING (true);
@@ -135,3 +134,4 @@ CREATE POLICY service_role_all_finance ON financial_records FOR ALL USING (true)
 CREATE POLICY service_role_all_habits ON habits FOR ALL USING (true);
 CREATE POLICY service_role_all_habit_logs ON habit_logs FOR ALL USING (true);
 CREATE POLICY service_role_all_wiki ON wiki_notes FOR ALL USING (true);
+CREATE POLICY service_role_all_passwords ON passwords FOR ALL USING (true);
