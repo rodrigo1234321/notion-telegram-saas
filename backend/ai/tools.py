@@ -17,9 +17,16 @@ async def add_calendar_event(
     start_time: str,
     end_time: str,
     description: str = "",
-    category: str = "general"
+    category: str = "general",
+    reminder_minutes_before: int = 15
 ) -> Dict[str, Any]:
-    """Create a calendar event with the given details."""
+    """Create a calendar event with default reminder settings."""
+    cat_lower = (category or "").lower()
+    if any(k in cat_lower for k in ["medicamento", "pastilla", "remimed"]):
+        reminder_minutes_before = 0
+    elif any(k in cat_lower for k in ["reunion", "reunión", "cita"]):
+        reminder_minutes_before = 30
+
     event_data = {
         "telegram_id": telegram_id,
         "title": title,
@@ -27,10 +34,13 @@ async def add_calendar_event(
         "start_time": start_time,
         "end_time": end_time,
         "category": category,
-        "is_all_day": False
+        "is_all_day": False,
+        "reminder_minutes_before": reminder_minutes_before,
+        "reminder_sent": False
     }
     result = await db_service.add_event(event_data)
-    return {"status": "success", "event": result, "message": f"📅 Evento '{title}' agendado con éxito para {start_time}."}
+    return {"status": "success", "event": result, "message": f"📅 Evento '{title}' agendado con éxito para {start_time} (Recordatorio: {reminder_minutes_before} min antes)."}
+
 
 
 async def create_kanban_task(

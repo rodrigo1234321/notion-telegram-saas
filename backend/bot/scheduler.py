@@ -86,10 +86,21 @@ def _parse_iso_datetime(dt_str: str) -> datetime | None:
         return None
 
 
+async def run_cleanup_job():
+    """Run periodic cleanup for events older than 24 hours."""
+    try:
+        count = await db_service.cleanup_old_events()
+        if count > 0:
+            logger.info(f"[Scheduler Cleanup] Cleaned up {count} expired events older than 24h.")
+    except Exception as e:
+        logger.error(f"[Scheduler Cleanup Error] {e}")
+
+
 async def poll_reminders():
     """Poll database and in-memory events for pending reminders every minute."""
     logger.info("[Scheduler] Polling calendar reminders...")
     now_utc = datetime.now(timezone.utc)
+    arg_tz = ZoneInfo("America/Argentina/Buenos_Aires")
 
     try:
         events = await db_service.get_pending_reminders()
@@ -113,28 +124,29 @@ async def poll_reminders():
             if reminder_min is None:
                 reminder_min = _get_reminder_minutes(event.get("category", ""))
 
-            reminder_time = start_dt - timedelta(minutes=reminder_min)
+            # Convert time for display to local time
+            start_local = start_dt.astimezone(arg_tz)
+            time_display = start_local.strftime("%H:%M")
 
-            # Trigger reminder if now_utc >= reminder_time and event hasn't expired > 30 mins
-            if now_utc >= reminder_time and (now_utc - start_dt).total_seconds() < 1800:
-                time_display = start_dt.strftime("%H:%M UTC")
-                msg_template = REMINDER_MESSAGES.get(reminder_min, REMINDER_MESSAGES[None])
-                text = msg_template.format(title=title, time=time_display)
+            msg_template = REMINDER_MESSAGES.get(reminder_min, REMINDER_MESSAGES[None])
+            text = msg_template.format(title=title, time=time_display)
 
-                await _send_telegram_message(telegram_id, text)
-                await db_service.mark_reminder_sent(event_id)
-                logger.info(f"[Scheduler] Reminder executed and marked sent for event '{title}' ({event_id})")
+            await _send_telegram_message(telegram_id, text)
+            await db_service.mark_reminder_sent(event_id)
+            logger.info(f"[Scheduler] Reminder executed and marked sent for event '{title}' ({event_id})")
 
     except Exception as e:
         logger.error(f"[Scheduler] Error polling reminders: {e}")
 
 
 def start_scheduler():
-    """Start APScheduler with reminder polling."""
+    """Start APScheduler with reminder polling and cleanup jobs."""
     try:
         if not scheduler.running:
             scheduler.add_job(poll_reminders, IntervalTrigger(minutes=1), id="reminder_poll", replace_existing=True)
+            scheduler.add_job(run_cleanup_job, IntervalTrigger(hours=1), id="cleanup_old_events", replace_existing=True)
             scheduler.start()
-            logger.info("[Scheduler] APScheduler started successfully — polling every 1 minute")
+            logger.info("[Scheduler] APScheduler started successfully — polling every 1 minute & cleanup hourly")
     except Exception as e:
         logger.warning(f"[Scheduler] APScheduler start notice: {e}")
+

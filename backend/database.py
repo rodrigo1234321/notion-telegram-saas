@@ -94,45 +94,40 @@ class SupabaseService:
     async def get_pending_reminders(self) -> List[Dict[str, Any]]:
         now = datetime.now(timezone.utc)
         pending = []
+        
+        def is_due(e: Dict[str, Any]) -> bool:
+            try:
+                if e.get("reminder_sent", False):
+                    return False
+                start_str = e.get("start_time", "")
+                if not start_str:
+                    return False
+                start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                if start.tzinfo is None:
+                    start = start.replace(tzinfo=timezone.utc)
+                rem_min = e.get("reminder_minutes_before")
+                if rem_min is None:
+                    rem_min = 15
+                
+                reminder_time = start - timedelta(minutes=rem_min)
+                # Due if current time is past reminder time, but not expired by more than 24h
+                return now >= reminder_time and (now - start).total_seconds() < 86400
+            except Exception:
+                return False
+
         if self.has_supabase:
             try:
                 res = self.client.table("calendar_events").select("*").or_("reminder_sent.eq.false,reminder_sent.is.null").execute()
                 for e in (res.data or []):
-                    try:
-                        start_str = e.get("start_time", "")
-                        if not start_str:
-                            continue
-                        start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                        if start.tzinfo is None:
-                            start = start.replace(tzinfo=timezone.utc)
-                        rem_min = e.get("reminder_minutes_before")
-                        if rem_min is None:
-                            rem_min = 15
-                        diff_minutes = (start - now).total_seconds() / 60
-                        if -5 <= diff_minutes <= rem_min:
-                            pending.append(e)
-                    except Exception:
-                        pass
+                    if is_due(e):
+                        pending.append(e)
                 return pending
             except Exception:
                 pass
+
         for e in IN_MEMORY_DB["calendar_events"]:
-            if not e.get("reminder_sent", False):
-                try:
-                    start_str = e.get("start_time", "")
-                    if not start_str:
-                        continue
-                    start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                    if start.tzinfo is None:
-                        start = start.replace(tzinfo=timezone.utc)
-                    rem_min = e.get("reminder_minutes_before")
-                    if rem_min is None:
-                        rem_min = 15
-                    diff_minutes = (start - now).total_seconds() / 60
-                    if -5 <= diff_minutes <= rem_min:
-                        pending.append(e)
-                except Exception:
-                    pass
+            if is_due(e):
+                pending.append(e)
         return pending
 
     async def mark_reminder_sent(self, event_id: str) -> None:
@@ -146,6 +141,28 @@ class SupabaseService:
             if e["id"] == event_id:
                 e["reminder_sent"] = True
                 return
+
+    async def cleanup_old_events(self) -> int:
+        """Deletes events that passed more than 24 hours ago."""
+        now = datetime.now(timezone.utc)
+        cutoff = (now - timedelta(hours=24)).isoformat()
+        deleted_count = 0
+
+        if self.has_supabase:
+            try:
+                res = self.client.table("calendar_events").delete().lt("start_time", cutoff).execute()
+                deleted_count = len(res.data) if res.data else 0
+                return deleted_count
+            except Exception:
+                pass
+
+        original_count = len(IN_MEMORY_DB["calendar_events"])
+        IN_MEMORY_DB["calendar_events"] = [
+            e for e in IN_MEMORY_DB["calendar_events"]
+            if e.get("start_time", "") > cutoff
+        ]
+        return original_count - len(IN_MEMORY_DB["calendar_events"])
+
 
     # ===== PASSWORDS (BÓVEDA SEGUARA) =====
     async def get_user_passwords(self, telegram_id: int) -> List[Dict[str, Any]]:
