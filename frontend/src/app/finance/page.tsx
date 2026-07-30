@@ -103,9 +103,13 @@ export default function FinancePage() {
 
   // Filter records for the currently selected month
   const monthlyRecords = records.filter(r => {
-    const rawDate = r.record_date || r.created_at;
-    if (!rawDate) return true;
+    let rawDate = r.record_date || r.created_at;
+    if (!rawDate && r.id && !isNaN(Number(r.id))) {
+      rawDate = new Date(Number(r.id)).toISOString();
+    }
+    if (!rawDate) return false;
     const d = new Date(rawDate);
+    if (isNaN(d.getTime())) return false;
     return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
   });
 

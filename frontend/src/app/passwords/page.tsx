@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { Key, Plus, Trash2, Eye, EyeOff, Copy, Check, ShieldCheck, Lock } from 'lucide-react';
+import { Key, Plus, Trash2, Eye, EyeOff, Copy, Check, ShieldCheck, Lock, Unlock, Delete, RefreshCw } from 'lucide-react';
 import { triggerHaptic } from '@/lib/telegram';
 import { apiClient } from '@/lib/api_client';
 
@@ -18,6 +18,7 @@ interface PasswordRecord {
 }
 
 const LOCAL_STORAGE_KEY = 'saas_passwords_vault';
+const PIN_STORAGE_KEY = 'saas_vault_pin';
 
 export default function PasswordsPage() {
   const [passwords, setPasswords] = useState<PasswordRecord[]>([]);
@@ -26,6 +27,13 @@ export default function PasswordsPage() {
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Security PIN Lock State
+  const [savedPin, setSavedPin] = useState<string | null>(null);
+  const [inputPin, setInputPin] = useState<string>('');
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
+  const [pinError, setPinError] = useState<boolean>(false);
+  const [isSettingNewPin, setIsSettingNewPin] = useState<boolean>(false);
+
   // Form State
   const [serviceName, setServiceName] = useState('');
   const [username, setUsername] = useState('');
@@ -33,8 +41,17 @@ export default function PasswordsPage() {
   const [category, setCategory] = useState('Personal');
   const [notes, setNotes] = useState('');
 
-  // Persistent Memory Load
+  // Persistent Memory Load & PIN Initialization
   useEffect(() => {
+    // Read saved PIN from localStorage
+    const storedPin = localStorage.getItem(PIN_STORAGE_KEY);
+    if (storedPin && storedPin.length === 4) {
+      setSavedPin(storedPin);
+      setIsUnlocked(false);
+    } else {
+      setIsSettingNewPin(true);
+    }
+
     // 1. Instant local memory load
     const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (cached) {
@@ -62,6 +79,68 @@ export default function PasswordsPage() {
       .catch(() => {})
       .finally(() => setIsLoading(false));
   }, []);
+
+  // Handle Numeric Keypad Presses
+  const handleNumKeyPress = (num: string) => {
+    if (inputPin.length >= 4) return;
+    triggerHaptic('light');
+    const updatedPin = inputPin + num;
+    setInputPin(updatedPin);
+    setPinError(false);
+
+    if (updatedPin.length === 4) {
+      if (isSettingNewPin) {
+        // Setup new PIN
+        localStorage.setItem(PIN_STORAGE_KEY, updatedPin);
+        setSavedPin(updatedPin);
+        setIsSettingNewPin(false);
+        setIsUnlocked(true);
+        setInputPin('');
+        triggerHaptic('heavy');
+      } else if (savedPin && updatedPin === savedPin) {
+        // Correct PIN entered
+        setIsUnlocked(true);
+        setInputPin('');
+        triggerHaptic('heavy');
+      } else {
+        // Incorrect PIN
+        triggerHaptic('rigid');
+        setPinError(true);
+        setTimeout(() => {
+          setInputPin('');
+          setPinError(false);
+        }, 800);
+      }
+    }
+  };
+
+  const handleBackspace = () => {
+    if (inputPin.length > 0) {
+      triggerHaptic('light');
+      setInputPin(prev => prev.slice(0, -1));
+    }
+  };
+
+  const handleClearPin = () => {
+    triggerHaptic('medium');
+    setInputPin('');
+  };
+
+  const handleLockVault = () => {
+    triggerHaptic('medium');
+    setIsUnlocked(false);
+    setShowPasswordMap({});
+  };
+
+  const handleResetPin = () => {
+    if (confirm('¿Deseas restablecer tu PIN de seguridad de 4 dígitos?')) {
+      localStorage.removeItem(PIN_STORAGE_KEY);
+      setSavedPin(null);
+      setIsUnlocked(false);
+      setIsSettingNewPin(true);
+      setInputPin('');
+    }
+  };
 
   // Save persistent state
   const savePersistent = (newList: PasswordRecord[]) => {
@@ -120,6 +199,96 @@ export default function PasswordsPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // -------------------------------------------------------------
+  // PIN LOCK OVERLAY SCREEN (When Bóveda is locked)
+  // -------------------------------------------------------------
+  if (!isUnlocked) {
+    return (
+      <div className="space-y-6 animate-fadeIn py-6 max-w-sm mx-auto">
+        <div className="text-center space-y-2">
+          <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400 shadow-xl">
+            <Lock className="w-8 h-8" />
+          </div>
+          <h2 className="text-lg font-extrabold text-slate-100">
+            {isSettingNewPin ? 'Crea tu PIN de 4 Dígitos' : 'Bóveda de Claves Protegida'}
+          </h2>
+          <p className="text-xs text-slate-400 max-w-[260px] mx-auto">
+            {isSettingNewPin
+              ? 'Ingresa 4 números para proteger el acceso a tus contraseñas.'
+              : 'Ingresa tu PIN de 4 dígitos para desbloquear tus contraseñas.'}
+          </p>
+        </div>
+
+        {/* 4-Digit Indicator Circles */}
+        <div className="flex justify-center items-center space-x-4">
+          {[0, 1, 2, 3].map((idx) => {
+            const isFilled = inputPin.length > idx;
+            return (
+              <div
+                key={idx}
+                className={`w-4 h-4 rounded-full transition-all duration-200 ${
+                  pinError
+                    ? 'bg-red-500 scale-110 shadow-lg shadow-red-500/50'
+                    : isFilled
+                    ? 'bg-emerald-400 scale-110 shadow-lg shadow-emerald-500/50'
+                    : 'bg-slate-800 border border-slate-700'
+                }`}
+              />
+            );
+          })}
+        </div>
+
+        {pinError && (
+          <p className="text-center text-xs font-semibold text-red-400 animate-bounce">
+            ⚠️ PIN Incorrecto. Intenta de nuevo.
+          </p>
+        )}
+
+        {/* Interactive Numeric Keypad */}
+        <div className="grid grid-cols-3 gap-3 px-6">
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+            <button
+              key={digit}
+              onClick={() => handleNumKeyPress(digit)}
+              className="h-14 rounded-2xl bg-slate-900 border border-slate-800 text-lg font-bold text-slate-100 hover:bg-slate-800 active:scale-95 transition-all shadow-md"
+            >
+              {digit}
+            </button>
+          ))}
+          <button
+            onClick={handleClearPin}
+            className="h-14 rounded-2xl bg-slate-900/50 border border-slate-800/80 text-xs font-bold text-slate-400 hover:text-slate-200 active:scale-95 transition-all"
+          >
+            Limpiar
+          </button>
+          <button
+            onClick={() => handleNumKeyPress('0')}
+            className="h-14 rounded-2xl bg-slate-900 border border-slate-800 text-lg font-bold text-slate-100 hover:bg-slate-800 active:scale-95 transition-all shadow-md"
+          >
+            0
+          </button>
+          <button
+            onClick={handleBackspace}
+            className="h-14 rounded-2xl bg-slate-900/50 border border-slate-800/80 flex items-center justify-center text-slate-400 hover:text-slate-200 active:scale-95 transition-all"
+          >
+            <Delete className="w-5 h-5" />
+          </button>
+        </div>
+
+        {!isSettingNewPin && (
+          <div className="text-center pt-2">
+            <button onClick={handleResetPin} className="text-[11px] text-slate-500 hover:text-emerald-400 transition-colors">
+              ¿Olvidaste tu PIN? Restablecer PIN
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // UNLOCKED VAULT VIEW
+  // -------------------------------------------------------------
   return (
     <div className="space-y-4 animate-fadeIn">
       {/* Header */}
@@ -129,21 +298,35 @@ export default function PasswordsPage() {
             <ShieldCheck className="w-5 h-5 text-emerald-400" />
             <span>Bóveda de Contraseñas</span>
           </h1>
-          <p className="text-xs text-slate-400">Guarda tus claves seguras en tu Telegram personal</p>
+          <p className="text-xs text-slate-400">Protegido con PIN de 4 dígitos</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)} variant="primary" className="!py-1.5 !px-3 text-xs bg-emerald-600 hover:bg-emerald-500">
-          <Plus className="w-4 h-4" />
-          <span>Nueva Clave</span>
-        </Button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handleLockVault}
+            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-emerald-400 transition-colors"
+            title="Bloquear Bóveda"
+          >
+            <Lock className="w-4 h-4" />
+          </button>
+          <Button onClick={() => setIsModalOpen(true)} variant="primary" className="!py-1.5 !px-3 text-xs bg-emerald-600 hover:bg-emerald-500">
+            <Plus className="w-4 h-4" />
+            <span>Nueva Clave</span>
+          </Button>
+        </div>
       </div>
 
       {/* Security Status Banner */}
-      <Card className="p-3 bg-emerald-500/10 border-emerald-500/20 flex items-center space-x-3">
-        <Lock className="w-6 h-6 text-emerald-400 shrink-0" />
-        <div>
-          <h3 className="text-xs font-bold text-slate-100">Cifrado & Memoria Persistente</h3>
-          <p className="text-[10px] text-slate-400">Tus datos nunca se borran y están vinculados a tu ID de Telegram.</p>
+      <Card className="p-3 bg-emerald-500/10 border-emerald-500/20 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <Unlock className="w-5 h-5 text-emerald-400 shrink-0" />
+          <div>
+            <h3 className="text-xs font-bold text-slate-100">Bóveda Desbloqueada</h3>
+            <p className="text-[10px] text-slate-400">Acceso activo seguro. Presiona el candado superior para bloquear.</p>
+          </div>
         </div>
+        <button onClick={handleResetPin} className="text-[10px] text-emerald-400 font-semibold underline">
+          Cambiar PIN
+        </button>
       </Card>
 
       {/* Password Cards List */}

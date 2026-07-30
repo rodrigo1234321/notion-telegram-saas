@@ -20,6 +20,8 @@ class CalendarEventCreate(BaseModel):
     end_time: datetime
     category: Optional[str] = "general"
     is_all_day: Optional[bool] = False
+    reminder_minutes_before: Optional[int] = 15
+    reminder_sent: Optional[bool] = False
 
 
 class CalendarEventUpdate(BaseModel):
@@ -29,6 +31,8 @@ class CalendarEventUpdate(BaseModel):
     end_time: Optional[datetime] = None
     category: Optional[str] = None
     is_all_day: Optional[bool] = None
+    reminder_minutes_before: Optional[int] = None
+    reminder_sent: Optional[bool] = None
 
 
 @router.get("/events")

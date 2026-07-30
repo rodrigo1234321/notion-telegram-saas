@@ -96,12 +96,20 @@ class SupabaseService:
         pending = []
         if self.has_supabase:
             try:
-                res = self.client.table("calendar_events").select("*").not_.is_("reminder_minutes_before", "null").eq("reminder_sent", False).execute()
+                res = self.client.table("calendar_events").select("*").or_("reminder_sent.eq.false,reminder_sent.is.null").execute()
                 for e in (res.data or []):
                     try:
-                        start = datetime.fromisoformat(e["start_time"].replace("Z", "+00:00"))
+                        start_str = e.get("start_time", "")
+                        if not start_str:
+                            continue
+                        start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                        if start.tzinfo is None:
+                            start = start.replace(tzinfo=timezone.utc)
+                        rem_min = e.get("reminder_minutes_before")
+                        if rem_min is None:
+                            rem_min = 15
                         diff_minutes = (start - now).total_seconds() / 60
-                        if 0 <= diff_minutes <= (e.get("reminder_minutes_before") or 15):
+                        if -5 <= diff_minutes <= rem_min:
                             pending.append(e)
                     except Exception:
                         pass
@@ -109,11 +117,19 @@ class SupabaseService:
             except Exception:
                 pass
         for e in IN_MEMORY_DB["calendar_events"]:
-            if e.get("reminder_minutes_before") is not None and not e.get("reminder_sent", False):
+            if not e.get("reminder_sent", False):
                 try:
-                    start = datetime.fromisoformat(e["start_time"].replace("Z", "+00:00"))
+                    start_str = e.get("start_time", "")
+                    if not start_str:
+                        continue
+                    start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                    if start.tzinfo is None:
+                        start = start.replace(tzinfo=timezone.utc)
+                    rem_min = e.get("reminder_minutes_before")
+                    if rem_min is None:
+                        rem_min = 15
                     diff_minutes = (start - now).total_seconds() / 60
-                    if 0 <= diff_minutes <= (e.get("reminder_minutes_before") or 15):
+                    if -5 <= diff_minutes <= rem_min:
                         pending.append(e)
                 except Exception:
                     pass
