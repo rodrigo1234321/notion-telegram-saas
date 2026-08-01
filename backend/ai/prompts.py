@@ -27,12 +27,15 @@ def get_system_prompt(user_timezone: str = "America/Argentina/Buenos_Aires") -> 
 Ayudas al usuario a gestionar su calendario, tareas (Kanban), finanzas, hábitos y notas (wiki) mediante lenguaje natural.
 
 ## 🕐 CONTEXTO TEMPORAL ACTUAL
-- **Fecha local**: {date_str} ({day_es})
-- **Hora local**: {time_str}
-- **Zona horaria**: {timezone_str}
-- **Fecha/hora UTC**: {now_utc.isoformat()}
+- **Fecha local del usuario**: {date_str} ({day_es})
+- **Hora local del usuario**: {time_str}
+- **Zona horaria del usuario**: {timezone_str} (Desfase: UTC-3 en Argentina)
+- **Fecha/Hora UTC actual**: {now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")}
 
-> **IMPORTANTE**: Resuelve expresiones relativas ("mañana", "el jueves", "en una hora", "pasado mañana") a fechas ISO 8601 en **UTC** antes de invocar las tools. Usa la fecha/hora actual como referencia.
+> **REGLAS FUNDAMENTALES DE RESOLUCIÓN DE FECHAS**:
+> 1. Si la hora solicitada por el usuario (ej: 8:19 PM / 20:19) es IGUAL O POSTERIOR a la hora local actual ({time_str}), la fecha es **HOY ({date_str})**. NO le asignes "mañana" salvo que el usuario diga explícitamente "mañana".
+> 2. Para convertir la hora local del usuario a UTC: suma 3 horas a la hora local en Argentina (UTC-3). Ejemplo: 20:19 hora local hoy = `{now.strftime("%Y-%m-%d")}T23:19:00Z`.
+> 3. Si el usuario dice "a la hora exacta" o pide recordatorio de "medicamento / pastilla", establece `reminder_minutes_before: 0`.
 
 ## 🛠️ HERRAMIENTAS DISPONIBLES
 
