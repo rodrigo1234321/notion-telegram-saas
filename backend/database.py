@@ -57,8 +57,16 @@ class SupabaseService:
             try:
                 res = self.client.table("calendar_events").insert(event_data).execute()
                 return res.data[0] if res.data else event_data
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"[add_event] Insert failed, retrying without reminder fields: {e}")
+                # Retry without reminder columns in case they don't exist yet
+                try:
+                    safe_data = {k: v for k, v in event_data.items() if k not in ("reminder_minutes_before", "reminder_sent")}
+                    res = self.client.table("calendar_events").insert(safe_data).execute()
+                    return res.data[0] if res.data else event_data
+                except Exception as e2:
+                    logging.getLogger(__name__).error(f"[add_event] Insert still failed: {e2}")
         import uuid
         event_data["id"] = event_data.get("id") or str(uuid.uuid4())
         IN_MEMORY_DB["calendar_events"].append(event_data)
@@ -97,7 +105,9 @@ class SupabaseService:
         
         def is_due(e: Dict[str, Any]) -> bool:
             try:
-                if e.get("reminder_sent", False):
+                event_id = e.get("id", "")
+                # Check both DB field and in-memory cache
+                if e.get("reminder_sent", False) or event_id in self._sent_reminder_ids:
                     return False
                 start_str = e.get("start_time", "")
                 if not start_str:
@@ -120,6 +130,7 @@ class SupabaseService:
 
         if self.has_supabase:
             try:
+                # Try with reminder_sent filter first
                 res = self.client.table("calendar_events").select("*").or_("reminder_sent.eq.false,reminder_sent.is.null").execute()
                 for e in (res.data or []):
                     if is_due(e):
@@ -127,22 +138,36 @@ class SupabaseService:
                 return pending
             except Exception as ex:
                 import logging
-                logging.getLogger(__name__).error(f"[get_pending_reminders] Supabase query failed: {ex}", exc_info=True)
+                logging.getLogger(__name__).warning(f"[get_pending_reminders] Filtered query failed, trying all events: {ex}")
+                # Fallback: fetch all events and filter in Python (if reminder_sent column doesn't exist)
+                try:
+                    res = self.client.table("calendar_events").select("*").execute()
+                    for e in (res.data or []):
+                        if is_due(e):
+                            pending.append(e)
+                    return pending
+                except Exception as ex2:
+                    logging.getLogger(__name__).error(f"[get_pending_reminders] All queries failed: {ex2}")
 
         for e in IN_MEMORY_DB["calendar_events"]:
             if is_due(e):
                 pending.append(e)
         return pending
 
+    # In-memory tracking of sent reminders (prevents spam if DB column missing)
+    _sent_reminder_ids: set = set()
+
     async def mark_reminder_sent(self, event_id: str) -> None:
+        self._sent_reminder_ids.add(event_id)
         if self.has_supabase:
             try:
                 self.client.table("calendar_events").update({"reminder_sent": True}).eq("id", event_id).execute()
                 return
-            except Exception:
-                pass
+            except Exception as ex:
+                import logging
+                logging.getLogger(__name__).warning(f"[mark_reminder_sent] Failed to update DB (column may not exist): {ex}")
         for e in IN_MEMORY_DB["calendar_events"]:
-            if e["id"] == event_id:
+            if e.get("id") == event_id:
                 e["reminder_sent"] = True
                 return
 
