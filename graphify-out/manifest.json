@@ -1,0 +1,262 @@
+{
+  "backend/ai/engine.py": {
+    "mtime": 1785219710.5235782,
+    "ast_hash": "bc5819c46a779aaebc5d057120645828",
+    "semantic_hash": "bc5819c46a779aaebc5d057120645828"
+  },
+  "backend/ai/prompts.py": {
+    "mtime": 1785219642.5557597,
+    "ast_hash": "b2b1df124cbd50386f14beaff2464aa3",
+    "semantic_hash": "b2b1df124cbd50386f14beaff2464aa3"
+  },
+  "backend/ai/tools.py": {
+    "mtime": 1785444910.4743023,
+    "ast_hash": "1b4dea77a90b33352313f6610e311c26",
+    "semantic_hash": "1b4dea77a90b33352313f6610e311c26"
+  },
+  "backend/api/endpoints/calendar.py": {
+    "mtime": 1785444210.5784206,
+    "ast_hash": "03d5ca7eb4af382ecda2c0464291de37",
+    "semantic_hash": "03d5ca7eb4af382ecda2c0464291de37"
+  },
+  "backend/api/endpoints/finance.py": {
+    "mtime": 1785219069.235244,
+    "ast_hash": "44ab76cfcb0d18a8c45415d300e62315",
+    "semantic_hash": "44ab76cfcb0d18a8c45415d300e62315"
+  },
+  "backend/api/endpoints/habits.py": {
+    "mtime": 1785219110.9029036,
+    "ast_hash": "4599124a13c0b130c1d4a2558a622e81",
+    "semantic_hash": "4599124a13c0b130c1d4a2558a622e81"
+  },
+  "backend/api/endpoints/kanban.py": {
+    "mtime": 1785219000.6102433,
+    "ast_hash": "777548689afc2c021d4ab40f0b86ba28",
+    "semantic_hash": "777548689afc2c021d4ab40f0b86ba28"
+  },
+  "backend/api/endpoints/passwords.py": {
+    "mtime": 1785223957.1971169,
+    "ast_hash": "01229d0717babf1cdca23e786d11a2e5",
+    "semantic_hash": "01229d0717babf1cdca23e786d11a2e5"
+  },
+  "backend/api/endpoints/users.py": {
+    "mtime": 1785221925.1981876,
+    "ast_hash": "fa4638148375e156fd28413f1cc72067",
+    "semantic_hash": "fa4638148375e156fd28413f1cc72067"
+  },
+  "backend/api/endpoints/wiki.py": {
+    "mtime": 1785218920.650813,
+    "ast_hash": "ce7770541bac2d67145ff1f31a9bc048",
+    "semantic_hash": "ce7770541bac2d67145ff1f31a9bc048"
+  },
+  "backend/api/router.py": {
+    "mtime": 1785223960.7749486,
+    "ast_hash": "6431c3541b5643d156e2e8ccbaf6f6ab",
+    "semantic_hash": "6431c3541b5643d156e2e8ccbaf6f6ab"
+  },
+  "backend/apply_migration.py": {
+    "mtime": 1785223449.3899302,
+    "ast_hash": "13cfcf0a8cf3dcec2d19052448c003e2",
+    "semantic_hash": "13cfcf0a8cf3dcec2d19052448c003e2"
+  },
+  "backend/bot/handlers_chat.py": {
+    "mtime": 1785225322.8405929,
+    "ast_hash": "f0fed8d77c86b49553d15d8cffd04b93",
+    "semantic_hash": "f0fed8d77c86b49553d15d8cffd04b93"
+  },
+  "backend/bot/scheduler.py": {
+    "mtime": 1785444923.5954528,
+    "ast_hash": "43da92c8f48e1fd6fb1b1498d9325714",
+    "semantic_hash": "43da92c8f48e1fd6fb1b1498d9325714"
+  },
+  "backend/bot/telegram_bot.py": {
+    "mtime": 1785444895.377755,
+    "ast_hash": "a6b3ad485a60f32394a24cf7e66cb795",
+    "semantic_hash": "a6b3ad485a60f32394a24cf7e66cb795"
+  },
+  "backend/config.py": {
+    "mtime": 1785445071.624832,
+    "ast_hash": "687f0e3b2c8c56a989bc5194fa3f5c7f",
+    "semantic_hash": "687f0e3b2c8c56a989bc5194fa3f5c7f"
+  },
+  "backend/database.py": {
+    "mtime": 1785444917.6281154,
+    "ast_hash": "6998e59960a2bc79eef9a0beea9b4610",
+    "semantic_hash": "6998e59960a2bc79eef9a0beea9b4610"
+  },
+  "backend/main.py": {
+    "mtime": 1785444902.0038953,
+    "ast_hash": "31c0bdbd13bd53249186b347d00401dd",
+    "semantic_hash": "31c0bdbd13bd53249186b347d00401dd"
+  },
+  "backend/migrations/002_get_calendar_reminders.sql": {
+    "mtime": 1785223439.0881505,
+    "ast_hash": "5c585db980fb1957960f971b66c77ead",
+    "semantic_hash": "5c585db980fb1957960f971b66c77ead"
+  },
+  "backend/migrations/003_passwords_table.sql": {
+    "mtime": 1785439966.4372709,
+    "ast_hash": "35ef60691f08af793f984f4d7293b322",
+    "semantic_hash": "35ef60691f08af793f984f4d7293b322"
+  },
+  "backend/schema.sql": {
+    "mtime": 1785439971.0526562,
+    "ast_hash": "7b456530e1b0ec8a4f7210d6fb1fcdd5",
+    "semantic_hash": "7b456530e1b0ec8a4f7210d6fb1fcdd5"
+  },
+  "backend/security.py": {
+    "mtime": 1785218504.445007,
+    "ast_hash": "d1c26831870f93b7668e1454ed3af729",
+    "semantic_hash": "d1c26831870f93b7668e1454ed3af729"
+  },
+  "backend/set_webhook.py": {
+    "mtime": 1785225149.8642242,
+    "ast_hash": "ec1bb16136216b7414016856669c3db9",
+    "semantic_hash": "ec1bb16136216b7414016856669c3db9"
+  },
+  "backend/test_db_migration.py": {
+    "mtime": 1785223468.4540725,
+    "ast_hash": "ed44d005019b289735e97de5f22d323f",
+    "semantic_hash": "ed44d005019b289735e97de5f22d323f"
+  },
+  "frontend/next-env.d.ts": {
+    "mtime": 1785197225.4156992,
+    "ast_hash": "da547da2ebeb322abd0257ae82d0f1bf",
+    "semantic_hash": "da547da2ebeb322abd0257ae82d0f1bf"
+  },
+  "frontend/next.config.js": {
+    "mtime": 1785222567.803998,
+    "ast_hash": "613b69b376f9a38a91019c122aa66022",
+    "semantic_hash": "613b69b376f9a38a91019c122aa66022"
+  },
+  "frontend/package.json": {
+    "mtime": 1785222422.4232924,
+    "ast_hash": "478004138b3673f0e042f49bb9e6129e",
+    "semantic_hash": "478004138b3673f0e042f49bb9e6129e"
+  },
+  "frontend/postcss.config.js": {
+    "mtime": 1785197097.5401533,
+    "ast_hash": "8640f9b2e6475cc3f5b1ff4548925765",
+    "semantic_hash": "8640f9b2e6475cc3f5b1ff4548925765"
+  },
+  "frontend/src/app/calendar/page.tsx": {
+    "mtime": 1785225355.9643643,
+    "ast_hash": "003b1ecd14f8076dcf17debef9d28d54",
+    "semantic_hash": "003b1ecd14f8076dcf17debef9d28d54"
+  },
+  "frontend/src/app/finance/page.tsx": {
+    "mtime": 1785444232.572302,
+    "ast_hash": "4bc7ac899cc2579acbeb1d267ed956ca",
+    "semantic_hash": "4bc7ac899cc2579acbeb1d267ed956ca"
+  },
+  "frontend/src/app/habits/page.tsx": {
+    "mtime": 1785223997.432783,
+    "ast_hash": "3c6b3834dc34566a50b8671a52cbae7b",
+    "semantic_hash": "3c6b3834dc34566a50b8671a52cbae7b"
+  },
+  "frontend/src/app/kanban/page.tsx": {
+    "mtime": 1785223986.5831256,
+    "ast_hash": "c4449666fbe0a8dd064870edadf605b9",
+    "semantic_hash": "c4449666fbe0a8dd064870edadf605b9"
+  },
+  "frontend/src/app/layout.tsx": {
+    "mtime": 1785138283.2112558,
+    "ast_hash": "f6bbae7da0afed1b4778acf82e94d61b",
+    "semantic_hash": "f6bbae7da0afed1b4778acf82e94d61b"
+  },
+  "frontend/src/app/page.tsx": {
+    "mtime": 1785440643.5001702,
+    "ast_hash": "0c27584e7d51d6a220943fdedc922320",
+    "semantic_hash": "0c27584e7d51d6a220943fdedc922320"
+  },
+  "frontend/src/app/passwords/page.tsx": {
+    "mtime": 1785444246.78925,
+    "ast_hash": "de39fc4ea25a88fde98756d330038ba9",
+    "semantic_hash": "de39fc4ea25a88fde98756d330038ba9"
+  },
+  "frontend/src/app/settings/page.tsx": {
+    "mtime": 1785222727.4226654,
+    "ast_hash": "61403621a24ebda7f1cdcad5b06e62cf",
+    "semantic_hash": "61403621a24ebda7f1cdcad5b06e62cf"
+  },
+  "frontend/src/app/wiki/page.tsx": {
+    "mtime": 1785224003.0299423,
+    "ast_hash": "91f56221121a8841e893dd747db645ba",
+    "semantic_hash": "91f56221121a8841e893dd747db645ba"
+  },
+  "frontend/src/components/calendar/MonthGrid.tsx": {
+    "mtime": 1785222250.3757484,
+    "ast_hash": "ad98a91899feeede43d26bcda5dba535",
+    "semantic_hash": "ad98a91899feeede43d26bcda5dba535"
+  },
+  "frontend/src/components/charts/FinanceCharts.tsx": {
+    "mtime": 1785224811.8776784,
+    "ast_hash": "32690678d1cdd9970187d7a2eb1b1a3d",
+    "semantic_hash": "32690678d1cdd9970187d7a2eb1b1a3d"
+  },
+  "frontend/src/components/ui/Button.tsx": {
+    "mtime": 1785197189.0942998,
+    "ast_hash": "35e30cdafb9162f175737d07541e62c5",
+    "semantic_hash": "35e30cdafb9162f175737d07541e62c5"
+  },
+  "frontend/src/components/ui/Card.tsx": {
+    "mtime": 1785222661.543416,
+    "ast_hash": "0b46295cde66cc66a0796d893bf8ccd5",
+    "semantic_hash": "0b46295cde66cc66a0796d893bf8ccd5"
+  },
+  "frontend/src/components/ui/Modal.tsx": {
+    "mtime": 1785202740.1426995,
+    "ast_hash": "27ff964169306371ce44b519c442f2e4",
+    "semantic_hash": "27ff964169306371ce44b519c442f2e4"
+  },
+  "frontend/src/components/ui/Navbar.tsx": {
+    "mtime": 1785223974.2494545,
+    "ast_hash": "62784970ed14b0b8bb251481453a5fbc",
+    "semantic_hash": "62784970ed14b0b8bb251481453a5fbc"
+  },
+  "frontend/src/components/ui/WeatherWidget.tsx": {
+    "mtime": 1785440638.0838315,
+    "ast_hash": "91bf2436a5775927e9d553b74f576980",
+    "semantic_hash": "91bf2436a5775927e9d553b74f576980"
+  },
+  "frontend/src/hooks/useTelegramUser.ts": {
+    "mtime": 1785218537.6471283,
+    "ast_hash": "3a4e21ac4dc305fa1384366a8fc2c4c3",
+    "semantic_hash": "3a4e21ac4dc305fa1384366a8fc2c4c3"
+  },
+  "frontend/src/lib/api_client.ts": {
+    "mtime": 1785440620.186624,
+    "ast_hash": "ee0f519cb1bc0810b27187d4cd57befc",
+    "semantic_hash": "ee0f519cb1bc0810b27187d4cd57befc"
+  },
+  "frontend/src/lib/telegram.ts": {
+    "mtime": 1785218520.5211656,
+    "ast_hash": "9cd2c784500e6ed9f3790f391c744477",
+    "semantic_hash": "9cd2c784500e6ed9f3790f391c744477"
+  },
+  "frontend/tailwind.config.js": {
+    "mtime": 1785222587.992332,
+    "ast_hash": "391e10adaada9a2ceae7ffd21311e9af",
+    "semantic_hash": "391e10adaada9a2ceae7ffd21311e9af"
+  },
+  "frontend/tsconfig.json": {
+    "mtime": 1785197100.7171805,
+    "ast_hash": "492fe1df794fccc27c69bfa6dc017b80",
+    "semantic_hash": "492fe1df794fccc27c69bfa6dc017b80"
+  },
+  "frontend/vercel.json": {
+    "mtime": 1785201574.2655969,
+    "ast_hash": "bc5aa3e80777687188606ff2d5a369bc",
+    "semantic_hash": "bc5aa3e80777687188606ff2d5a369bc"
+  },
+  "migrations/002_get_calendar_reminders.sql": {
+    "mtime": 1785223248.1248362,
+    "ast_hash": "ecb0eebbdb343a61b1a45a99ae593d6e",
+    "semantic_hash": "ecb0eebbdb343a61b1a45a99ae593d6e"
+  },
+  "vercel.json": {
+    "mtime": 1785201579.4001608,
+    "ast_hash": "07f67e899776227fc7f093a87ef43fc9",
+    "semantic_hash": "07f67e899776227fc7f093a87ef43fc9"
+  }
+}

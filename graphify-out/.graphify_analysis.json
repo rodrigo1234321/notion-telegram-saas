@@ -1,0 +1,580 @@
+{
+  "communities": {
+    "0": [
+      "frontend_src_app_calendar_page",
+      "frontend_src_app_calendar_page_calendarevent",
+      "frontend_src_app_calendar_page_calendarpage",
+      "frontend_src_app_finance_page",
+      "frontend_src_app_finance_page_default_categories",
+      "frontend_src_app_finance_page_financepage",
+      "frontend_src_app_finance_page_financerecord",
+      "frontend_src_app_finance_page_month_names",
+      "frontend_src_app_habits_page",
+      "frontend_src_app_habits_page_habit",
+      "frontend_src_app_habits_page_habitspage",
+      "frontend_src_app_kanban_page",
+      "frontend_src_app_kanban_page_kanbanpage",
+      "frontend_src_app_kanban_page_kanbantask",
+      "frontend_src_app_page",
+      "frontend_src_app_page_homepage",
+      "frontend_src_app_passwords_page",
+      "frontend_src_app_passwords_page_passwordrecord",
+      "frontend_src_app_passwords_page_passwordspage",
+      "frontend_src_app_settings_page",
+      "frontend_src_app_settings_page_scalechoice",
+      "frontend_src_app_settings_page_settingspage",
+      "frontend_src_app_settings_page_themechoice",
+      "frontend_src_app_wiki_page",
+      "frontend_src_app_wiki_page_wikinote",
+      "frontend_src_app_wiki_page_wikipage",
+      "frontend_src_components_ui_button",
+      "frontend_src_components_ui_button_button",
+      "frontend_src_components_ui_button_buttonprops",
+      "frontend_src_components_ui_card",
+      "frontend_src_components_ui_card_card",
+      "frontend_src_components_ui_card_cardprops",
+      "frontend_src_components_ui_modal",
+      "frontend_src_components_ui_modal_modal",
+      "frontend_src_components_ui_modal_modalprops",
+      "frontend_src_components_ui_weatherwidget",
+      "frontend_src_components_ui_weatherwidget_weatherdata",
+      "frontend_src_components_ui_weatherwidget_weatherwidget",
+      "frontend_src_hooks_usetelegramuser",
+      "frontend_src_hooks_usetelegramuser_usetelegramuser",
+      "frontend_src_lib_api_client",
+      "frontend_src_lib_api_client_apiclient",
+      "frontend_src_lib_telegram",
+      "frontend_src_lib_telegram_gettelegraminitdata",
+      "frontend_src_lib_telegram_telegramuser",
+      "frontend_src_lib_telegram_triggerhaptic",
+      "frontend_src_lib_telegram_window"
+    ],
+    "1": [
+      "backend_ai_engine",
+      "backend_ai_prompts",
+      "backend_ai_prompts_get_system_prompt",
+      "backend_ai_prompts_rationale_5",
+      "backend_ai_tools",
+      "backend_ai_tools_add_calendar_event",
+      "backend_ai_tools_create_kanban_task",
+      "backend_ai_tools_get_weather_forecast",
+      "backend_ai_tools_log_habit",
+      "backend_ai_tools_py_any",
+      "backend_ai_tools_rationale_115",
+      "backend_ai_tools_rationale_134",
+      "backend_ai_tools_rationale_23",
+      "backend_ai_tools_rationale_54",
+      "backend_ai_tools_rationale_74",
+      "backend_ai_tools_rationale_92",
+      "backend_ai_tools_record_transaction",
+      "backend_ai_tools_save_password_vault",
+      "backend_apply_migration",
+      "backend_apply_migration_apply_migration",
+      "backend_bot_scheduler",
+      "backend_bot_scheduler_get_reminder_minutes",
+      "backend_bot_scheduler_parse_iso_datetime",
+      "backend_bot_scheduler_poll_reminders",
+      "backend_bot_scheduler_rationale_100",
+      "backend_bot_scheduler_rationale_47",
+      "backend_bot_scheduler_rationale_90",
+      "backend_bot_scheduler_run_cleanup_job",
+      "backend_bot_scheduler_send_telegram_message",
+      "backend_config",
+      "backend_config_settings",
+      "backend_database",
+      "backend_test_db_migration",
+      "backend_test_db_migration_test_supabase_tables",
+      "basesettings",
+      "datetime"
+    ],
+    "2": [
+      "backend_database_py_any",
+      "backend_database_rationale_146",
+      "backend_database_supabaseservice",
+      "backend_database_supabaseservice_add_event",
+      "backend_database_supabaseservice_add_finance",
+      "backend_database_supabaseservice_add_habit",
+      "backend_database_supabaseservice_add_password",
+      "backend_database_supabaseservice_add_task",
+      "backend_database_supabaseservice_add_wiki",
+      "backend_database_supabaseservice_cleanup_old_events",
+      "backend_database_supabaseservice_delete_event",
+      "backend_database_supabaseservice_delete_finance",
+      "backend_database_supabaseservice_delete_habit",
+      "backend_database_supabaseservice_delete_password",
+      "backend_database_supabaseservice_delete_task",
+      "backend_database_supabaseservice_delete_wiki",
+      "backend_database_supabaseservice_get_pending_reminders",
+      "backend_database_supabaseservice_get_user",
+      "backend_database_supabaseservice_get_user_events",
+      "backend_database_supabaseservice_get_user_finances",
+      "backend_database_supabaseservice_get_user_habits",
+      "backend_database_supabaseservice_get_user_passwords",
+      "backend_database_supabaseservice_get_user_tasks",
+      "backend_database_supabaseservice_get_user_wiki",
+      "backend_database_supabaseservice_init",
+      "backend_database_supabaseservice_mark_reminder_sent",
+      "backend_database_supabaseservice_update_event",
+      "backend_database_supabaseservice_update_finance",
+      "backend_database_supabaseservice_update_task",
+      "backend_database_supabaseservice_update_user_preferences",
+      "backend_database_supabaseservice_upsert_user"
+    ],
+    "3": [
+      "axios",
+      "clsx",
+      "framer_motion",
+      "frontend_package_dependencies",
+      "frontend_package_dependencies_axios",
+      "frontend_package_dependencies_clsx",
+      "frontend_package_dependencies_framer_motion",
+      "frontend_package_dependencies_leaflet",
+      "frontend_package_dependencies_lucide_react",
+      "frontend_package_dependencies_next",
+      "frontend_package_dependencies_react",
+      "frontend_package_dependencies_react_dom",
+      "frontend_package_dependencies_react_leaflet",
+      "frontend_package_dependencies_recharts",
+      "frontend_package_dependencies_tailwind_merge",
+      "frontend_package_dependencies_telegram_apps_sdk_react",
+      "frontend_package_dependencies_types_leaflet",
+      "leaflet",
+      "lucide_react",
+      "next",
+      "react",
+      "react_dom",
+      "react_leaflet",
+      "recharts",
+      "tailwind_merge",
+      "telegram_apps_sdk_react",
+      "types_leaflet"
+    ],
+    "4": [
+      "frontend_tsconfig",
+      "frontend_tsconfig_compileroptions",
+      "frontend_tsconfig_compileroptions_allowjs",
+      "frontend_tsconfig_compileroptions_esmoduleinterop",
+      "frontend_tsconfig_compileroptions_incremental",
+      "frontend_tsconfig_compileroptions_isolatedmodules",
+      "frontend_tsconfig_compileroptions_jsx",
+      "frontend_tsconfig_compileroptions_lib",
+      "frontend_tsconfig_compileroptions_module",
+      "frontend_tsconfig_compileroptions_moduleresolution",
+      "frontend_tsconfig_compileroptions_noemit",
+      "frontend_tsconfig_compileroptions_paths",
+      "frontend_tsconfig_compileroptions_plugins",
+      "frontend_tsconfig_compileroptions_resolvejsonmodule",
+      "frontend_tsconfig_compileroptions_skiplibcheck",
+      "frontend_tsconfig_compileroptions_strict",
+      "frontend_tsconfig_compileroptions_target",
+      "frontend_tsconfig_exclude",
+      "frontend_tsconfig_include",
+      "ref_dom",
+      "ref_dom_iterable",
+      "ref_esnext",
+      "ref_next_env_d_ts",
+      "ref_next_types_ts",
+      "ref_node_modules",
+      "ref_ts",
+      "ref_tsx"
+    ],
+    "5": [
+      "application",
+      "backend_api_router",
+      "backend_bot_handlers_chat",
+      "backend_bot_handlers_chat_handle_start_command",
+      "backend_bot_handlers_chat_handle_text_message",
+      "backend_bot_handlers_chat_rationale_14",
+      "backend_bot_handlers_chat_send_safe_reply",
+      "backend_bot_scheduler_rationale_143",
+      "backend_bot_scheduler_start_scheduler",
+      "backend_bot_telegram_bot",
+      "backend_bot_telegram_bot_create_telegram_bot_app",
+      "backend_bot_telegram_bot_get_bot_app",
+      "backend_main",
+      "backend_main_auto_set_webhook",
+      "backend_main_bot_debug",
+      "backend_main_lifespan",
+      "backend_main_py_get",
+      "backend_main_py_post",
+      "backend_main_root",
+      "backend_main_telegram_webhook",
+      "default_type",
+      "fastapi",
+      "request",
+      "update"
+    ],
+    "6": [
+      "autoprefixer",
+      "frontend_package",
+      "frontend_package_devdependencies",
+      "frontend_package_devdependencies_autoprefixer",
+      "frontend_package_devdependencies_postcss",
+      "frontend_package_devdependencies_tailwindcss",
+      "frontend_package_devdependencies_types_node",
+      "frontend_package_devdependencies_types_react",
+      "frontend_package_devdependencies_types_react_dom",
+      "frontend_package_devdependencies_typescript",
+      "frontend_package_name",
+      "frontend_package_private",
+      "frontend_package_scripts",
+      "frontend_package_scripts_build",
+      "frontend_package_scripts_dev",
+      "frontend_package_scripts_lint",
+      "frontend_package_scripts_start",
+      "frontend_package_version",
+      "postcss",
+      "tailwindcss",
+      "types_node",
+      "types_react",
+      "types_react_dom",
+      "typescript"
+    ],
+    "7": [
+      "backend_ai_engine_geminiaiengine",
+      "backend_ai_engine_geminiaiengine_fallback_calendar",
+      "backend_ai_engine_geminiaiengine_fallback_finance",
+      "backend_ai_engine_geminiaiengine_fallback_habit",
+      "backend_ai_engine_geminiaiengine_fallback_kanban",
+      "backend_ai_engine_geminiaiengine_fallback_memory",
+      "backend_ai_engine_geminiaiengine_fallback_process",
+      "backend_ai_engine_geminiaiengine_get_conversation_history",
+      "backend_ai_engine_geminiaiengine_get_user_timezone",
+      "backend_ai_engine_geminiaiengine_init",
+      "backend_ai_engine_geminiaiengine_process_message",
+      "backend_ai_engine_py_any",
+      "backend_ai_engine_rationale_173",
+      "backend_ai_engine_rationale_206",
+      "backend_ai_engine_rationale_230",
+      "backend_ai_engine_rationale_242",
+      "backend_ai_engine_rationale_259",
+      "backend_ai_engine_rationale_268",
+      "backend_ai_engine_rationale_46",
+      "backend_ai_engine_rationale_57",
+      "backend_ai_engine_rationale_62"
+    ],
+    "8": [
+      "backend_api_endpoints_passwords",
+      "backend_api_endpoints_passwords_create_password",
+      "backend_api_endpoints_passwords_delete_password",
+      "backend_api_endpoints_passwords_get_passwords",
+      "backend_api_endpoints_passwords_py_any",
+      "backend_api_endpoints_passwords_py_delete",
+      "backend_api_endpoints_passwords_py_get",
+      "backend_api_endpoints_passwords_py_post",
+      "backend_api_endpoints_users",
+      "backend_api_endpoints_users_get_me",
+      "backend_api_endpoints_users_py_basemodel",
+      "backend_api_endpoints_users_py_get",
+      "backend_api_endpoints_users_py_patch",
+      "backend_api_endpoints_users_rationale_26",
+      "backend_api_endpoints_users_rationale_40",
+      "backend_api_endpoints_users_update_preferences",
+      "backend_api_endpoints_users_userpreferencesupdate",
+      "backend_security",
+      "backend_security_get_current_telegram_user",
+      "backend_security_py_any",
+      "backend_security_validate_telegram_init_data"
+    ],
+    "9": [
+      "backend_api_endpoints_habits",
+      "backend_api_endpoints_habits_create_habit",
+      "backend_api_endpoints_habits_delete_habit",
+      "backend_api_endpoints_habits_get_habits",
+      "backend_api_endpoints_habits_habitcreate",
+      "backend_api_endpoints_habits_habitlogcreate",
+      "backend_api_endpoints_habits_habitupdate",
+      "backend_api_endpoints_habits_log_habit",
+      "backend_api_endpoints_habits_py_basemodel",
+      "backend_api_endpoints_habits_py_delete",
+      "backend_api_endpoints_habits_py_get",
+      "backend_api_endpoints_habits_py_patch",
+      "backend_api_endpoints_habits_py_post",
+      "backend_api_endpoints_habits_update_habit"
+    ],
+    "10": [
+      "backend_api_endpoints_calendar",
+      "backend_api_endpoints_calendar_calendareventcreate",
+      "backend_api_endpoints_calendar_calendareventupdate",
+      "backend_api_endpoints_calendar_create_event",
+      "backend_api_endpoints_calendar_delete_event",
+      "backend_api_endpoints_calendar_get_events",
+      "backend_api_endpoints_calendar_py_basemodel",
+      "backend_api_endpoints_calendar_py_delete",
+      "backend_api_endpoints_calendar_py_get",
+      "backend_api_endpoints_calendar_py_patch",
+      "backend_api_endpoints_calendar_py_post",
+      "backend_api_endpoints_calendar_update_event"
+    ],
+    "11": [
+      "backend_api_endpoints_finance",
+      "backend_api_endpoints_finance_create_record",
+      "backend_api_endpoints_finance_delete_record",
+      "backend_api_endpoints_finance_financerecordcreate",
+      "backend_api_endpoints_finance_financerecordupdate",
+      "backend_api_endpoints_finance_get_records",
+      "backend_api_endpoints_finance_py_basemodel",
+      "backend_api_endpoints_finance_py_delete",
+      "backend_api_endpoints_finance_py_get",
+      "backend_api_endpoints_finance_py_patch",
+      "backend_api_endpoints_finance_py_post",
+      "backend_api_endpoints_finance_update_record"
+    ],
+    "12": [
+      "backend_api_endpoints_kanban",
+      "backend_api_endpoints_kanban_create_task",
+      "backend_api_endpoints_kanban_delete_task",
+      "backend_api_endpoints_kanban_get_tasks",
+      "backend_api_endpoints_kanban_kanbantaskcreate",
+      "backend_api_endpoints_kanban_kanbantaskupdate",
+      "backend_api_endpoints_kanban_py_basemodel",
+      "backend_api_endpoints_kanban_py_delete",
+      "backend_api_endpoints_kanban_py_get",
+      "backend_api_endpoints_kanban_py_patch",
+      "backend_api_endpoints_kanban_py_post",
+      "backend_api_endpoints_kanban_update_task"
+    ],
+    "13": [
+      "backend_api_endpoints_wiki",
+      "backend_api_endpoints_wiki_create_note",
+      "backend_api_endpoints_wiki_delete_note",
+      "backend_api_endpoints_wiki_get_notes",
+      "backend_api_endpoints_wiki_py_basemodel",
+      "backend_api_endpoints_wiki_py_delete",
+      "backend_api_endpoints_wiki_py_get",
+      "backend_api_endpoints_wiki_py_patch",
+      "backend_api_endpoints_wiki_py_post",
+      "backend_api_endpoints_wiki_update_note",
+      "backend_api_endpoints_wiki_wikinotecreate",
+      "backend_api_endpoints_wiki_wikinoteupdate"
+    ],
+    "14": [
+      "frontend_src_components_calendar_monthgrid",
+      "frontend_src_components_calendar_monthgrid_category_colors",
+      "frontend_src_components_calendar_monthgrid_days_es",
+      "frontend_src_components_calendar_monthgrid_event",
+      "frontend_src_components_calendar_monthgrid_monthgrid",
+      "frontend_src_components_calendar_monthgrid_monthgridprops",
+      "frontend_src_components_calendar_monthgrid_months_es",
+      "frontend_src_components_calendar_monthgrid_toisodate"
+    ],
+    "15": [
+      "frontend_src_app_layout",
+      "frontend_src_app_layout_metadata",
+      "frontend_src_app_layout_rootlayout",
+      "frontend_src_components_ui_navbar",
+      "frontend_src_components_ui_navbar_navbar",
+      "frontend_src_components_ui_navbar_navitems"
+    ],
+    "16": [
+      "frontend_src_components_charts_financecharts",
+      "frontend_src_components_charts_financecharts_dynamic_palette",
+      "frontend_src_components_charts_financecharts_financecharts",
+      "frontend_src_components_charts_financecharts_financechartsprops",
+      "frontend_src_components_charts_financecharts_financerecord",
+      "frontend_src_components_charts_financecharts_preset_colors"
+    ],
+    "17": [
+      "frontend_vercel",
+      "frontend_vercel_buildcommand",
+      "frontend_vercel_framework",
+      "frontend_vercel_outputdirectory"
+    ],
+    "18": [
+      "vercel",
+      "vercel_buildcommand",
+      "vercel_framework",
+      "vercel_outputdirectory"
+    ],
+    "19": [
+      "backend_set_webhook",
+      "backend_set_webhook_set_telegram_webhook"
+    ],
+    "20": [
+      "frontend_next_config",
+      "frontend_next_config_nextconfig"
+    ],
+    "21": [
+      "frontend_next_env_d",
+      "frontend_next_env_d_rationale_4"
+    ],
+    "22": [
+      "frontend_postcss_config"
+    ],
+    "23": [
+      "frontend_tailwind_config"
+    ]
+  },
+  "cohesion": {
+    "0": 0.1211840888066605,
+    "1": 0.08253968253968254,
+    "2": 0.1032258064516129,
+    "3": 0.07407407407407407,
+    "4": 0.07407407407407407,
+    "5": 0.17028985507246377,
+    "6": 0.08333333333333333,
+    "7": 0.12857142857142856,
+    "8": 0.12857142857142856,
+    "9": 0.2087912087912088,
+    "10": 0.21212121212121213,
+    "11": 0.21212121212121213,
+    "12": 0.21212121212121213,
+    "13": 0.21212121212121213,
+    "14": 0.2857142857142857,
+    "15": 0.4,
+    "16": 0.3333333333333333,
+    "17": 0.5,
+    "18": 0.5,
+    "19": 1.0,
+    "20": 1.0,
+    "21": 1.0,
+    "22": 1.0,
+    "23": 1.0
+  },
+  "gods": [
+    {
+      "id": "backend_database_supabaseservice",
+      "label": "SupabaseService",
+      "degree": 29
+    },
+    {
+      "id": "frontend_src_lib_telegram_triggerhaptic",
+      "label": "triggerHaptic()",
+      "degree": 23
+    },
+    {
+      "id": "frontend_tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 16
+    },
+    {
+      "id": "backend_ai_engine_geminiaiengine",
+      "label": "GeminiAIEngine",
+      "degree": 11
+    },
+    {
+      "id": "backend_security_get_current_telegram_user",
+      "label": "get_current_telegram_user()",
+      "degree": 10
+    },
+    {
+      "id": "frontend_src_components_ui_card_card",
+      "label": "Card()",
+      "degree": 10
+    },
+    {
+      "id": "frontend_src_components_ui_button_button",
+      "label": "Button()",
+      "degree": 9
+    },
+    {
+      "id": "backend_bot_telegram_bot_create_telegram_bot_app",
+      "label": "create_telegram_bot_app()",
+      "degree": 8
+    },
+    {
+      "id": "backend_bot_telegram_bot_get_bot_app",
+      "label": "get_bot_app()",
+      "degree": 8
+    },
+    {
+      "id": "frontend_src_components_ui_modal_modal",
+      "label": "Modal()",
+      "degree": 8
+    }
+  ],
+  "surprises": [
+    {
+      "source": "create_telegram_bot_app()",
+      "target": "handle_start_command()",
+      "source_files": [
+        "backend/bot/telegram_bot.py",
+        "backend/bot/handlers_chat.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "why": "inferred connection - not explicitly stated in source"
+    },
+    {
+      "source": "create_telegram_bot_app()",
+      "target": "handle_text_message()",
+      "source_files": [
+        "backend/bot/telegram_bot.py",
+        "backend/bot/handlers_chat.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "why": "inferred connection - not explicitly stated in source"
+    },
+    {
+      "source": "_send_telegram_message()",
+      "target": "get_bot_app()",
+      "source_files": [
+        "backend/bot/scheduler.py",
+        "backend/bot/telegram_bot.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "CalendarPage()",
+      "target": "triggerHaptic()",
+      "source_files": [
+        "frontend/src/app/calendar/page.tsx",
+        "frontend/src/lib/telegram.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "peripheral node `CalendarPage()` unexpectedly reaches hub `triggerHaptic()`"
+    },
+    {
+      "source": "FinancePage()",
+      "target": "triggerHaptic()",
+      "source_files": [
+        "frontend/src/app/finance/page.tsx",
+        "frontend/src/lib/telegram.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "peripheral node `FinancePage()` unexpectedly reaches hub `triggerHaptic()`"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `SupabaseService` connect `SupabaseService` to `database.py`?",
+      "why": "High betweenness centrality (0.084) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `GeminiAIEngine` connect `GeminiAIEngine` to `database.py`?",
+      "why": "High betweenness centrality (0.054) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `dependencies` connect `dependencies` to `devDependencies`?",
+      "why": "High betweenness centrality (0.015) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `nextConfig`, `name`, `version` to the rest of the system?",
+      "why": "82 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `triggerHaptic` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.1211840888066605 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `database.py` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.08253968253968254 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `SupabaseService` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.1032258064516129 - nodes in this community are weakly interconnected."
+    }
+  ]
+}

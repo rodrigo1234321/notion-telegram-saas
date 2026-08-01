@@ -83,9 +83,9 @@ class GeminiAIEngine:
                 max_output_tokens=2048,
             )
             
-            # First call to Gemini
-            response = self.client.models.generate_content(
-                model="gemini-1.5-flash",
+            # First call to Gemini (async)
+            response = await self.client.aio.models.generate_content(
+                model="gemini-2.0-flash",
                 contents=contents,
                 config=config,
             )
@@ -153,9 +153,9 @@ class GeminiAIEngine:
                     parts=function_response_parts
                 ))
                 
-                # Second call to get natural language response
-                final_response = self.client.models.generate_content(
-                    model="gemini-1.5-flash",
+                # Second call to get natural language response (async)
+                final_response = await self.client.aio.models.generate_content(
+                    model="gemini-2.0-flash",
                     contents=contents,
                     config=config,
                 )

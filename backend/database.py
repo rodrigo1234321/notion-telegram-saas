@@ -1,5 +1,5 @@
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 try:
     from backend.config import settings
@@ -111,8 +111,11 @@ class SupabaseService:
                 
                 reminder_time = start - timedelta(minutes=rem_min)
                 # Due if current time is past reminder time, but not expired by more than 24h
-                return now >= reminder_time and (now - start).total_seconds() < 86400
-            except Exception:
+                is_ready = now >= reminder_time and (now - start).total_seconds() < 86400
+                return is_ready
+            except Exception as ex:
+                import logging
+                logging.getLogger(__name__).error(f"[is_due] Error evaluating event {e.get('id', '?')}: {ex}", exc_info=True)
                 return False
 
         if self.has_supabase:
@@ -122,8 +125,9 @@ class SupabaseService:
                     if is_due(e):
                         pending.append(e)
                 return pending
-            except Exception:
-                pass
+            except Exception as ex:
+                import logging
+                logging.getLogger(__name__).error(f"[get_pending_reminders] Supabase query failed: {ex}", exc_info=True)
 
         for e in IN_MEMORY_DB["calendar_events"]:
             if is_due(e):
