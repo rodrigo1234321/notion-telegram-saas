@@ -85,7 +85,7 @@ class GeminiAIEngine:
             
             # First call to Gemini (async)
             response = await self.client.aio.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 contents=contents,
                 config=config,
             )
@@ -155,7 +155,7 @@ class GeminiAIEngine:
                 
                 # Second call to get natural language response (async)
                 final_response = await self.client.aio.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-2.5-flash",
                     contents=contents,
                     config=config,
                 )

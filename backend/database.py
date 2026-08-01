@@ -42,6 +42,17 @@ class SupabaseService:
         except Exception:
             self.has_supabase = False
 
+    async def ensure_user_exists(self, telegram_id: int) -> None:
+        """Ensure the user exists in the users table to prevent FK constraint violations."""
+        if not telegram_id:
+            return
+        if self.has_supabase:
+            try:
+                self.client.table("users").upsert({"telegram_id": telegram_id, "first_name": "Usuario"}, on_conflict="telegram_id").execute()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"[ensure_user_exists] Notice: {e}")
+
     # ===== CALENDAR EVENTS & REMINDERS =====
     async def get_user_events(self, telegram_id: int) -> List[Dict[str, Any]]:
         if self.has_supabase:
@@ -53,6 +64,8 @@ class SupabaseService:
         return [e for e in IN_MEMORY_DB["calendar_events"] if e.get("telegram_id") == telegram_id]
 
     async def add_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
+        if event_data.get("telegram_id"):
+            await self.ensure_user_exists(event_data["telegram_id"])
         if self.has_supabase:
             try:
                 res = self.client.table("calendar_events").insert(event_data).execute()
@@ -204,6 +217,8 @@ class SupabaseService:
         return [p for p in IN_MEMORY_DB["passwords"] if p.get("telegram_id") == telegram_id]
 
     async def add_password(self, pwd_data: Dict[str, Any]) -> Dict[str, Any]:
+        if pwd_data.get("telegram_id"):
+            await self.ensure_user_exists(pwd_data["telegram_id"])
         if self.has_supabase:
             try:
                 res = self.client.table("passwords").insert(pwd_data).execute()
@@ -239,6 +254,8 @@ class SupabaseService:
         return [t for t in IN_MEMORY_DB["kanban_tasks"] if t.get("telegram_id") == telegram_id]
 
     async def add_task(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
+        if task_data.get("telegram_id"):
+            await self.ensure_user_exists(task_data["telegram_id"])
         if self.has_supabase:
             try:
                 res = self.client.table("kanban_tasks").insert(task_data).execute()
@@ -288,6 +305,8 @@ class SupabaseService:
         return [f for f in IN_MEMORY_DB["financial_records"] if f.get("telegram_id") == telegram_id]
 
     async def add_finance(self, finance_data: Dict[str, Any]) -> Dict[str, Any]:
+        if finance_data.get("telegram_id"):
+            await self.ensure_user_exists(finance_data["telegram_id"])
         if self.has_supabase:
             try:
                 res = self.client.table("financial_records").insert(finance_data).execute()
