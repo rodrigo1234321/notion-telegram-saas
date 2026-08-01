@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    TELEGRAM_BOT_TOKEN: str = "8955614393:AAE1t3EZVDqMCjhgxHKmS3kmwuADW7-XeEE"
+    TELEGRAM_BOT_TOKEN: str = "8526803626:AAE4FoYk0XdsLPR6SWJzAzKtnvuLvvh__B4"
     MI_TELEGRAM_ID: Optional[int] = 5634360549
     DEV_TELEGRAM_ID: Optional[int] = 5634360549
     TELEGRAM_WEBHOOK_URL: str = "https://notion-telegram-saas.onrender.com/bot/webhook"
