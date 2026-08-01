@@ -27,11 +27,11 @@ DEFAULT_REMINDER = {
 }
 
 REMINDER_MESSAGES = {
-    0: "⏰ **RECORDATORIO:** ¡'{title}' es AHORA ({time})!",
-    15: "⏰ **RECORDATORIO:** '{title}' empieza en 15 minutos ({time}).",
-    30: "⏰ **RECORDATORIO:** '{title}' empieza en 30 minutos ({time}).",
-    60: "⏰ **RECORDATORIO:** '{title}' empieza en 1 hora ({time}).",
-    None: "⏰ **RECORDATORIO:** '{title}' empieza pronto ({time}).",
+    0: "⏰ <b>RECORDATORIO:</b> ¡<b>{title}</b> es AHORA ({time} hs)! 💊",
+    15: "⏰ <b>RECORDATORIO:</b> <b>{title}</b> empieza en 15 minutos ({time} hs). 🔔",
+    30: "⏰ <b>RECORDATORIO:</b> <b>{title}</b> empieza en 30 minutos ({time} hs). 🔔",
+    60: "⏰ <b>RECORDATORIO:</b> <b>{title}</b> empieza en 1 hora ({time} hs). 🔔",
+    None: "⏰ <b>RECORDATORIO:</b> <b>{title}</b> empieza pronto ({time} hs). 🔔",
 }
 
 
@@ -44,7 +44,7 @@ def _get_reminder_minutes(category: str) -> int:
 
 
 async def _send_telegram_message(telegram_id: int, text: str):
-    """Send a message via Telegram bot safely with fallback."""
+    """Send a message via Telegram bot safely with HTML formatting fallback."""
     try:
         from backend.bot.telegram_bot import get_bot_app
     except ModuleNotFoundError:
@@ -60,14 +60,15 @@ async def _send_telegram_message(telegram_id: int, text: str):
         return
 
     try:
-        await app.bot.send_message(chat_id=telegram_id, text=text, parse_mode="Markdown")
-        logger.info(f"[Scheduler] Sent notification to {telegram_id}")
-    except telegram.error.BadRequest:
+        await app.bot.send_message(chat_id=telegram_id, text=text, parse_mode="HTML")
+        logger.info(f"[Scheduler] Sent HTML notification to {telegram_id}")
+    except telegram.error.BadRequest as e:
+        logger.warning(f"[Scheduler] HTML parse warning ({e}), falling back to plain text")
         try:
             await app.bot.send_message(chat_id=telegram_id, text=text, parse_mode=None)
             logger.info(f"[Scheduler] Sent fallback plain text notification to {telegram_id}")
-        except Exception as e:
-            logger.error(f"[Scheduler] Failed plain text notification to {telegram_id}: {e}")
+        except Exception as ex:
+            logger.error(f"[Scheduler] Failed plain text notification to {telegram_id}: {ex}")
     except Exception as e:
         logger.error(f"[Scheduler] Failed to send notification to {telegram_id}: {e}")
 

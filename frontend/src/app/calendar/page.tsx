@@ -220,59 +220,85 @@ export default function CalendarPage() {
         </div>
       </Card>
 
-      {/* Events for Selected Day */}
+      {/* Events List — Always show all events sorted by date so nothing is hidden */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Eventos ({selectedDay} de {monthNames[month]})
+            Todos los Eventos Agendados ({events.length})
           </h2>
-          <span className="text-[10px] text-sky-400 font-medium">
-            {displayEvents.length} Agendados
-          </span>
+          {selectedDayEvents.length > 0 && (
+            <span className="text-[10px] text-sky-400 font-semibold bg-sky-950/60 px-2 py-0.5 rounded-md border border-sky-800/50">
+              {selectedDayEvents.length} el día {selectedDay}
+            </span>
+          )}
         </div>
 
-        {displayEvents.length === 0 && !isLoading ? (
+        {events.length === 0 && !isLoading ? (
           <Card className="text-center py-6 px-4 border-dashed border-slate-800">
             <CalendarX className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-            <h3 className="text-xs font-semibold text-slate-300 mb-1">Sin eventos para el {selectedDay} de {monthNames[month]}</h3>
+            <h3 className="text-xs font-semibold text-slate-300 mb-1">Sin eventos agendados</h3>
+            <p className="text-[11px] text-slate-400 mb-2">Pedile al bot por Telegram o presiona "Nuevo"</p>
             <Button onClick={() => setIsModalOpen(true)} variant="outline" className="mx-auto !text-xs mt-2">
-              + Agendar Evento para este día
+              + Agendar Evento
             </Button>
           </Card>
         ) : (
-          displayEvents.map((event) => {
-            const evDate = event.start_time ? new Date(event.start_time) : null;
-            const dateStr = evDate ? `${evDate.getDate()} de ${monthNames[evDate.getMonth()]}` : `${selectedDay} de ${monthNames[month]}`;
+          events
+            .slice()
+            .sort((a, b) => {
+              if (!a.start_time) return 1;
+              if (!b.start_time) return -1;
+              return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+            })
+            .map((event) => {
+              const evDate = event.start_time ? new Date(event.start_time) : null;
+              const dateStr = evDate
+                ? `${evDate.getDate()} de ${monthNames[evDate.getMonth()]} ${evDate.getFullYear()}`
+                : `${selectedDay} de ${monthNames[month]}`;
 
-            return (
-              <Card key={event.id} className="hover:border-sky-500/40 transition-all">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-slate-100 text-sm">{event.title}</h3>
-                    <div className="flex items-center space-x-3 text-xs text-slate-400">
-                      <span className="flex items-center gap-1 font-semibold text-sky-400">
-                        <Clock className="w-3.5 h-3.5" />
-                        {dateStr} — {event.time}
-                      </span>
-                      <span className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded-full text-[10px] text-slate-300">
-                        <Tag className="w-3 h-3 text-sky-400" />
-                        {event.category}
-                      </span>
+              const isSelectedDayMatch = evDate && evDate.getDate() === selectedDay && evDate.getMonth() === month && evDate.getFullYear() === year;
+
+              return (
+                <Card
+                  key={event.id}
+                  className={`transition-all ${
+                    isSelectedDayMatch
+                      ? 'border-sky-500/80 bg-slate-900/90 shadow-md shadow-sky-500/10'
+                      : 'hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-slate-100 text-sm">{event.title}</h3>
+                        {isSelectedDayMatch && (
+                          <span className="text-[9px] bg-sky-500 text-slate-950 px-1.5 py-0.2 rounded font-bold">DÍA SELECCIONADO</span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-3 text-xs text-slate-400">
+                        <span className="flex items-center gap-1 font-semibold text-sky-400">
+                          <Clock className="w-3.5 h-3.5" />
+                          {dateStr} — {event.time}
+                        </span>
+                        <span className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded-full text-[10px] text-slate-300">
+                          <Tag className="w-3 h-3 text-sky-400" />
+                          {event.category}
+                        </span>
+                      </div>
+                      {event.reminder_minutes_before !== undefined && (
+                        <p className="text-[10px] text-amber-400 flex items-center gap-1 pt-0.5 font-medium">
+                          <Bell className="w-3 h-3 fill-amber-400" />
+                          Recordatorio activado: {event.reminder_minutes_before === 0 ? 'A la hora exacta' : `${event.reminder_minutes_before} min antes`}
+                        </p>
+                      )}
                     </div>
-                    {event.reminder_minutes_before !== undefined && (
-                      <p className="text-[10px] text-amber-400 flex items-center gap-1 pt-0.5">
-                        <Bell className="w-3 h-3 fill-amber-400" />
-                        Recordatorio activado: {event.reminder_minutes_before === 0 ? 'A la hora exacta' : `${event.reminder_minutes_before} min antes`}
-                      </p>
-                    )}
+                    <button onClick={() => handleDelete(event.id)} className="text-slate-500 hover:text-red-400 p-1">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  <button onClick={() => handleDelete(event.id)} className="text-slate-500 hover:text-red-400 p-1">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </Card>
-            );
-          })
+                </Card>
+              );
+            })
         )}
       </div>
 
