@@ -387,16 +387,44 @@ class SupabaseService:
                 res = self.client.table("wiki_notes").select("*").eq("telegram_id", telegram_id).execute()
                 return res.data or []
             except Exception:
-                pass
+                try:
+                    res = self.client.table("ai_memories").select("*").eq("telegram_id", telegram_id).execute()
+                    if res.data:
+                        return [
+                            {
+                                "id": str(m.get("id", "")),
+                                "title": m.get("memory_key", "Nota"),
+                                "content": m.get("memory_value", ""),
+                                "category": m.get("category", "General"),
+                                "created_at": m.get("created_at")
+                            }
+                            for m in res.data
+                        ]
+                except Exception:
+                    pass
         return [w for w in IN_MEMORY_DB["wiki_notes"] if w.get("telegram_id") == telegram_id]
 
     async def add_wiki(self, note_data: Dict[str, Any]) -> Dict[str, Any]:
+        if note_data.get("telegram_id"):
+            await self.ensure_user_exists(note_data["telegram_id"])
         if self.has_supabase:
             try:
                 res = self.client.table("wiki_notes").insert(note_data).execute()
                 return res.data[0] if res.data else note_data
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"[add_wiki] wiki_notes insert failed ({e}), falling back to ai_memories")
+                try:
+                    mem_data = {
+                        "telegram_id": note_data["telegram_id"],
+                        "category": note_data.get("category", "General"),
+                        "memory_key": note_data.get("title", "Nota"),
+                        "memory_value": note_data.get("content", "")
+                    }
+                    res = self.client.table("ai_memories").insert(mem_data).execute()
+                    return note_data
+                except Exception as ex2:
+                    logging.getLogger(__name__).error(f"[add_wiki] ai_memories insert failed: {ex2}")
         import uuid
         note_data["id"] = note_data.get("id") or str(uuid.uuid4())
         IN_MEMORY_DB["wiki_notes"].append(note_data)

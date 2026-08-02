@@ -125,6 +125,23 @@ async def save_password_vault(
     return {"status": "success", "password": result, "message": f"🔑 Contraseña para '{service_name}' guardada de forma segura en tu Bóveda."}
 
 
+async def save_wiki_note(
+    telegram_id: int,
+    title: str,
+    content: str,
+    category: str = "General"
+) -> Dict[str, Any]:
+    """Save a note / measurement / wiki entry."""
+    note_data = {
+        "telegram_id": telegram_id,
+        "title": title,
+        "content": content,
+        "category": category
+    }
+    result = await db_service.add_wiki(note_data)
+    return {"status": "success", "note": result, "message": f"📝 Nota '{title}' guardada con éxito en tu bloc de notas / wiki."}
+
+
 async def get_weather_forecast(
     telegram_id: int = None,
     city: str = "Buenos Aires",
@@ -166,6 +183,19 @@ TOOL_DECLARATIONS = [
                 "category": {"type": "string", "description": "Categoría: trabajo, personal, medicamento, cita, evento, general", "enum": ["trabajo", "personal", "medicamento", "cita", "evento", "general"]}
             },
             "required": ["title", "start_time", "end_time"]
+        }
+    },
+    {
+        "name": "save_wiki_note",
+        "description": "Guarda una nota, anotación, medida, recordatorio de texto, idea o entrada en el bloc de notas / wiki. Úsalo SIEMPRE que el usuario pida 'anótame esto', 'guarda esta nota', 'anota que...', 'medidas de...', 'recordá que...', etc.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Título o resumen de la nota (ej: 'Medidas ventanas dormitorio', 'Lista de compras', 'Idea proyecto')"},
+                "content": {"type": "string", "description": "El texto o contenido completo a guardar"},
+                "category": {"type": "string", "description": "Categoría opcional: General, Casa, Trabajo, Ideas, Medidas"}
+            },
+            "required": ["title", "content"]
         }
     },
     {
@@ -240,6 +270,7 @@ TOOL_DECLARATIONS = [
 # Map tool names to actual async functions
 TOOL_FUNCTIONS_MAP = {
     "add_calendar_event": add_calendar_event,
+    "save_wiki_note": save_wiki_note,
     "create_kanban_task": create_kanban_task,
     "record_transaction": record_transaction,
     "log_habit": log_habit,
