@@ -170,29 +170,37 @@ class GeminiAIEngine:
             return await self._fallback_process(telegram_id, user_message)
 
     async def _fallback_process(self, telegram_id: int, user_message: str) -> str:
-        """Fallback rule-based processing when Gemini is not available."""
+        """Fallback rule-based processing when Gemini is not available or quota limit hit."""
         msg = user_message.lower()
         
         try:
-            # Calendar events
-            if any(kw in msg for kw in ["reunión", "agendar", "evento", "cita", "recordatorio", "programar"]):
+            # 1. Notes / Wiki / Anotar
+            if any(kw in msg for kw in ["anotá", "anota", "anótame", "anotame", "guarda", "guardá", "nota", "medida", "medidas", "recordá", "recuerda", "memoria", "bloc"]):
+                return await self._fallback_wiki(telegram_id, user_message)
+
+            # 2. Calendar events / Recordatorios con hora / Pastillas
+            elif any(kw in msg for kw in ["reunión", "reunion", "agendar", "agendame", "agendá", "evento", "cita", "recordatorio", "programar", "pastilla", "medicamento", "a las", "hora"]):
                 return await self._fallback_calendar(telegram_id, user_message)
             
-            # Kanban tasks
-            elif any(kw in msg for kw in ["tarea", "kanban", "pendiente", "comprar", "hacer", "añadir a tareas"]):
+            # 3. Finance / Gastos
+            elif any(kw in msg for kw in ["gasté", "gaste", "pagué", "pague", "ingreso", "cobré", "cobre", "compré", "compre", "pagó", "pago", "$", "pesos", "dólares", "dolares"]):
+                return await self._fallback_finance(telegram_id, user_message)
+
+            # 4. Kanban tasks
+            elif any(kw in msg for kw in ["tarea", "kanban", "pendiente", "comprar", "hacer", "añadir"]):
                 return await self._fallback_kanban(telegram_id, user_message)
             
-            # Finance
-            elif any(kw in msg for kw in ["gasté", "pague", "ingreso", "cobré", "compré", "pagó", "$"]):
-                return await self._fallback_finance(telegram_id, user_message)
-            
-            # Habits
-            elif any(kw in msg for kw in ["hábito", "medit", "ejercicio", "completé", "hice", "cumplí"]):
+            # 5. Habits
+            elif any(kw in msg for kw in ["hábito", "habito", "medit", "ejercicio", "completé", "cumplí", "cumpli"]):
                 return await self._fallback_habit(telegram_id, user_message)
-            
-            # Memory
-            elif any(kw in msg for kw in ["recuerda", "guarda", "anota que", "mi ", "soy ", "tengo "]):
-                return await self._fallback_memory(telegram_id, user_message)
+
+            # 6. Password Vault
+            elif any(kw in msg for kw in ["clave", "contraseña", "password", "pin", "bóveda", "boveda", "vault"]):
+                return await self._fallback_password(telegram_id, user_message)
+
+            # If user mentions any action verb or time, force calendar/note fallback instead of generic message
+            elif any(char.isdigit() for char in msg) or len(msg.split()) > 3:
+                return await self._fallback_calendar(telegram_id, user_message)
             
             return ("Entendido. Soy tu asistente de productividad en Telegram. "
                    "Puedo ayudarte a agendar eventos, crear tareas, registrar gastos, "
@@ -340,9 +348,35 @@ class GeminiAIEngine:
             return f"🔥 Hábito **{habit['title']}** completado. Racha: {result.get('streak_count', 1)} días."
         return "No tienes hábitos configurados aún. Crea uno desde la app."
 
-    async def _fallback_memory(self, telegram_id: int, user_message: str) -> str:
-        """Basic memory fallback."""
-        return "Entendido, lo tendré en cuenta para la próxima. 💭"
+    async def _fallback_wiki(self, telegram_id: int, user_message: str) -> str:
+        """Fallback for wiki / notes."""
+        clean = user_message
+        import re
+        clean = re.sub(r'^(?:anota|anotá|anótame|anotame|guarda|guardá|recuerda|recordá)\s*(?:que|esto|las|los|mi)?\s*', '', clean, flags=re.IGNORECASE).strip()
+        title = clean[:30] + ("..." if len(clean) > 30 else "") if clean else "Nota guardada"
+        note = {
+            "telegram_id": telegram_id,
+            "title": title.capitalize(),
+            "content": user_message,
+            "category": "General",
+            "tags": ["chat"]
+        }
+        res = await db_service.add_wiki(note)
+        return f"📝 Nota guardada en tu Wiki: **{res.get('title', title)}**."
+
+    async def _fallback_password(self, telegram_id: int, user_message: str) -> str:
+        """Fallback for password vault."""
+        words = user_message.split()
+        service = words[0] if words else "Servicio"
+        pwd = {
+            "telegram_id": telegram_id,
+            "service_name": service.capitalize(),
+            "password_value": user_message,
+            "username": "usuario",
+            "category": "Personal"
+        }
+        res = await db_service.add_password(pwd)
+        return f"🔑 Clave para **{res.get('service_name', service)}** guardada de forma segura en la Bóveda."
 
 # Global instance
 ai_engine = GeminiAIEngine()
