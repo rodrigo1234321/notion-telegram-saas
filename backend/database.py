@@ -66,24 +66,30 @@ class SupabaseService:
     async def add_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
         if event_data.get("telegram_id"):
             await self.ensure_user_exists(event_data["telegram_id"])
+        
+        # Ensure datetime objects are converted to ISO 8601 strings for Supabase JSON compatibility
+        payload = event_data.copy()
+        for k in ["start_time", "end_time"]:
+            if isinstance(payload.get(k), datetime):
+                payload[k] = payload[k].isoformat()
+
         if self.has_supabase:
             try:
-                res = self.client.table("calendar_events").insert(event_data).execute()
-                return res.data[0] if res.data else event_data
+                res = self.client.table("calendar_events").insert(payload).execute()
+                return res.data[0] if res.data else payload
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(f"[add_event] Insert failed, retrying without reminder fields: {e}")
-                # Retry without reminder columns in case they don't exist yet
                 try:
-                    safe_data = {k: v for k, v in event_data.items() if k not in ("reminder_minutes_before", "reminder_sent")}
+                    safe_data = {k: v for k, v in payload.items() if k not in ("reminder_minutes_before", "reminder_sent")}
                     res = self.client.table("calendar_events").insert(safe_data).execute()
-                    return res.data[0] if res.data else event_data
+                    return res.data[0] if res.data else payload
                 except Exception as e2:
                     logging.getLogger(__name__).error(f"[add_event] Insert still failed: {e2}")
         import uuid
-        event_data["id"] = event_data.get("id") or str(uuid.uuid4())
-        IN_MEMORY_DB["calendar_events"].append(event_data)
-        return event_data
+        payload["id"] = payload.get("id") or str(uuid.uuid4())
+        IN_MEMORY_DB["calendar_events"].append(payload)
+        return payload
 
     async def update_event(self, event_id: str, telegram_id: int, update_data: Dict[str, Any]) -> Dict[str, Any]:
         if self.has_supabase:
