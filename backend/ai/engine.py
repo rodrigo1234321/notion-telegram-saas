@@ -165,7 +165,7 @@ class GeminiAIEngine:
             return "Procesé tu solicitud pero no pude generar respuesta. ¿Algo más?"
 
         except Exception as e:
-            logger.error(f"Gemini processing error: {e}")
+            logger.error(f"[Gemini Error] {e}", exc_info=True)
             # Fallback to rule-based processing
             return await self._fallback_process(telegram_id, user_message)
 
@@ -203,30 +203,104 @@ class GeminiAIEngine:
             return "Hubo un problema procesando tu mensaje. Intenta de nuevo o sé más específico."
 
     async def _fallback_calendar(self, telegram_id: int, user_message: str) -> str:
-        """Basic calendar fallback - create a simple event."""
+        """Basic calendar fallback - parse time and title intelligently from user message."""
+        import re
         from datetime import datetime, timedelta
         from zoneinfo import ZoneInfo
         
-        # Simple extraction attempt
-        tz = ZoneInfo("America/Argentina/Buenos_Aires")
+        user_tz_str = await self._get_user_timezone(telegram_id)
+        try:
+            tz = ZoneInfo(user_tz_str)
+        except Exception:
+            tz = ZoneInfo("America/Argentina/Buenos_Aires")
+            
         now = datetime.now(tz)
-        tomorrow = now + timedelta(days=1)
-        start = tomorrow.replace(hour=15, minute=0, second=0, microsecond=0)
+        msg_lower = user_message.lower()
+        
+        start = None
+        time_str_to_remove = ""
+        
+        # 1. Relative time: "en 10 minutos", "en 5 min"
+        match_rel = re.search(r'\ben\s+(\d+)\s+min(?:uto)?s?\b', msg_lower)
+        if match_rel:
+            mins = int(match_rel.group(1))
+            start = now + timedelta(minutes=mins)
+            time_str_to_remove = match_rel.group(0)
+        else:
+            # 2. Specific time with minutes: e.g. "20:19", "20.19", "8:19 pm", "a las 20:19"
+            match_hhmm = re.search(r'(?:a las\s+)?(\d{1,2})[:.](\d{2})\s*(am|pm|hs|hrs|horas)?\b', msg_lower)
+            # 3. Specific time without minutes: e.g. "a las 20", "a las 8 pm", "20 hs"
+            match_alas = re.search(r'(?:\ba las\s+(\d{1,2})\s*(am|pm|hs|hrs|horas)?\b|\b(\d{1,2})\s*(am|pm|hs|hrs|horas)\b)', msg_lower)
+            
+            match = match_hhmm or match_alas
+            if match:
+                time_str_to_remove = match.group(0)
+                if match_hhmm:
+                    h = int(match.group(1))
+                    m = int(match.group(2))
+                    ampm = match.group(3)
+                else:
+                    h = int(match.group(1) or match.group(3))
+                    m = 0
+                    ampm = match.group(2) or match.group(4)
+                
+                if ampm:
+                    ampm_lower = ampm.lower()
+                    if ampm_lower == "pm" and h < 12:
+                        h += 12
+                    elif ampm_lower == "am" and h == 12:
+                        h = 0
+                
+                if 0 <= h <= 23 and 0 <= m <= 59:
+                    start_today = now.replace(hour=h, minute=m, second=0, microsecond=0)
+                    if start_today > now:
+                        start = start_today
+                    else:
+                        start = start_today + timedelta(days=1)
+        
+        if not start:
+            start = (now + timedelta(hours=1)).replace(second=0, microsecond=0)
+        
         end = start + timedelta(hours=1)
+        
+        # Extract title from user_message
+        clean_title = user_message
+        if time_str_to_remove:
+            pattern = re.escape(time_str_to_remove)
+            clean_title = re.sub(pattern, "", clean_title, flags=re.IGNORECASE)
+            
+        clean_title = re.sub(r'\b(hoy|mañana|manana)\b', '', clean_title, flags=re.IGNORECASE)
+        clean_title = re.sub(r'^(?:agendar|programar|crear|añadir|agregar|poner)\s+(?:un|una|el|la|este|esta)?\s*', '', clean_title, flags=re.IGNORECASE)
+        clean_title = clean_title.strip(" .,!?\t\n")
+        
+        if len(clean_title) < 2:
+            if any(k in msg_lower for k in ["pastilla", "medicamento"]):
+                clean_title = "Recordatorio de pastilla"
+            else:
+                clean_title = "Evento desde chat"
+        else:
+            clean_title = clean_title[0].upper() + clean_title[1:]
+
+        if any(k in msg_lower for k in ["pastilla", "medicamento", "hora exacta"]):
+            category = "medicamento"
+            reminder_minutes_before = 0
+        else:
+            category = "general"
+            reminder_minutes_before = 15
         
         event = {
             "telegram_id": telegram_id,
-            "title": "Evento desde chat",
+            "title": clean_title,
             "description": user_message,
             "start_time": start.astimezone(ZoneInfo("UTC")).isoformat(),
             "end_time": end.astimezone(ZoneInfo("UTC")).isoformat(),
-            "category": "general",
+            "category": category,
             "is_all_day": False,
-            "reminder_minutes_before": 15,
+            "reminder_minutes_before": reminder_minutes_before,
             "reminder_sent": False
         }
         result = await db_service.add_event(event)
-        return f"📅 Evento creado: **{result.get('title', 'Evento')}** para el {start.strftime('%d/%m a las %H:%M')}."
+        return f"📅 Evento creado: **{result.get('title', clean_title)}** para el {start.strftime('%d/%m a las %H:%M')}."
 
     async def _fallback_kanban(self, telegram_id: int, user_message: str) -> str:
         """Basic Kanban fallback."""
