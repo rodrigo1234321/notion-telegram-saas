@@ -136,7 +136,11 @@ class SupabaseService:
                     start = start.replace(tzinfo=timezone.utc)
                 rem_min = e.get("reminder_minutes_before")
                 if rem_min is None:
-                    rem_min = 15
+                    try:
+                        from backend.reminder_rules import get_default_reminder_minutes
+                    except ModuleNotFoundError:
+                        from reminder_rules import get_default_reminder_minutes
+                    rem_min = get_default_reminder_minutes(e.get("category", ""))
                 
                 reminder_time = start - timedelta(minutes=rem_min)
                 # Due if current time is past reminder time, but not expired by more than 24h
@@ -410,18 +414,41 @@ class SupabaseService:
         IN_MEMORY_DB["habits"].append(habit_data)
         return habit_data
 
-    async def delete_habit(self, habit_id: str, telegram_id: int) -> None:
+    async def update_habit(self, habit_id: str, telegram_id: int, update_data: Dict[str, Any]) -> Dict[str, Any]:
         if self.has_supabase:
             try:
-                res = self.client.table("habits").delete().eq("id", habit_id).eq("telegram_id", telegram_id).execute()
+                res = self.client.table("habits").update(update_data).eq("id", habit_id).eq("telegram_id", telegram_id).execute()
                 if res.data:
-                    return
+                    return res.data[0]
             except Exception:
                 pass
-        for i, h in enumerate(IN_MEMORY_DB["habits"]):
+        for h in IN_MEMORY_DB["habits"]:
             if h["id"] == habit_id and h.get("telegram_id") == telegram_id:
-                IN_MEMORY_DB["habits"].pop(i)
-                return
+                h.update(update_data)
+                return h
+        raise ValueError("Habit not found or access denied")
+
+    async def log_habit_completion(self, habit_id: str, telegram_id: int, completed_date: Any) -> Dict[str, Any]:
+        date_str = str(completed_date)
+        if self.has_supabase:
+            try:
+                log_data = {"habit_id": habit_id, "telegram_id": telegram_id, "completed_date": date_str}
+                self.client.table("habit_logs").insert(log_data).execute()
+                # Update streak count on habit
+                habits = await self.get_user_habits(telegram_id)
+                target = next((h for h in habits if str(h.get("id")) == str(habit_id)), None)
+                new_streak = (target.get("streak_count", 0) + 1) if target else 1
+                await self.update_habit(habit_id, telegram_id, {"streak_count": new_streak})
+                return {"status": "success", "streak_count": new_streak, "habit": target}
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"[log_habit_completion] Table habit_logs exception ({e}), updating memory")
+        # Fallback in-memory
+        for h in IN_MEMORY_DB["habits"]:
+            if str(h["id"]) == str(habit_id):
+                h["streak_count"] = h.get("streak_count", 0) + 1
+                return {"status": "success", "streak_count": h["streak_count"], "habit": h}
+        return {"status": "success", "streak_count": 1}
 
     # ===== WIKI NOTES =====
     async def get_user_wiki(self, telegram_id: int) -> List[Dict[str, Any]]:

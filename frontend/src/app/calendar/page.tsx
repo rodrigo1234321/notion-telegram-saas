@@ -70,7 +70,7 @@ export default function CalendarPage() {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !timePicker) return;
     triggerHaptic('heavy');
@@ -80,36 +80,48 @@ export default function CalendarPage() {
     const startIso = eventDate.toISOString();
     const formattedDisplayTime = eventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    const newEvent: CalendarEvent = {
-      id: Date.now().toString(),
-      title,
-      time: formattedDisplayTime,
-      category,
-      start_time: startIso,
-      reminder_minutes_before: reminderMinutes
-    };
+    try {
+      const res = await apiClient.post('/api/calendar/events', {
+        title,
+        start_time: startIso,
+        end_time: startIso,
+        category,
+        reminder_minutes_before: reminderMinutes
+      });
 
-    const updated = [newEvent, ...events];
-    savePersistent(updated);
+      const serverEvent = res.data?.data || {};
 
-    setTitle('');
-    setTimePicker('09:00');
-    setIsModalOpen(false);
+      const newEvent: CalendarEvent = {
+        id: serverEvent.id || Date.now().toString(),
+        title,
+        time: formattedDisplayTime,
+        category,
+        start_time: startIso,
+        reminder_minutes_before: reminderMinutes
+      };
 
-    apiClient.post('/api/calendar/events', {
-      title,
-      start_time: startIso,
-      end_time: startIso,
-      category,
-      reminder_minutes_before: reminderMinutes
-    }).catch(() => {});
+      const updated = [newEvent, ...events];
+      savePersistent(updated);
+
+      setTitle('');
+      setTimePicker('09:00');
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error('Failed to create calendar event:', err);
+      alert('Error al guardar el evento en el servidor. Por favor reintenta.');
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     triggerHaptic('rigid');
-    const updated = events.filter(e => e.id !== id);
-    savePersistent(updated);
-    apiClient.delete(`/api/calendar/events/${id}`).catch(() => {});
+    try {
+      await apiClient.delete(`/api/calendar/events/${id}`);
+      const updated = events.filter(e => e.id !== id);
+      savePersistent(updated);
+    } catch (err) {
+      console.error('Failed to delete calendar event:', err);
+      alert('Error al eliminar el evento del servidor.');
+    }
   };
 
   // Monthly Grid Calculation

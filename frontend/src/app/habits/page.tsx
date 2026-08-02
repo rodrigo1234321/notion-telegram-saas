@@ -53,8 +53,9 @@ export default function HabitsPage() {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
   };
 
-  const toggleHabit = (id: string) => {
+  const toggleHabit = async (id: string) => {
     triggerHaptic('heavy');
+    const todayIso = new Date().toISOString().split('T')[0];
     const updated = habits.map(h => {
       if (h.id === id) {
         const nextState = !h.completedToday;
@@ -67,6 +68,11 @@ export default function HabitsPage() {
       return h;
     });
     savePersistent(updated);
+    try {
+      await apiClient.post(`/api/habits/${id}/log`, { completed_date: todayIso });
+    } catch (err) {
+      console.error('Failed to log habit completion:', err);
+    }
   };
 
   const handleDelete = (id: string) => {

@@ -50,6 +50,6 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         response_text = await ai_engine.process_message(user_id, text)
         await send_safe_reply(update, response_text)
     except Exception as e:
-        logger.error(f"[Telegram Chat] Error processing message from {user_id}: {e}")
-        fallback_msg = f"✅ Registré tu solicitud: '{text}'. Abre la Mini App para ver tus cambios."
+        logger.error(f"[Telegram Chat] Error processing message from {user_id}: {e}", exc_info=True)
+        fallback_msg = "⚠️ Hubo un problema al procesar tu solicitud. Por favor intenta de nuevo en unos momentos."
         await send_safe_reply(update, fallback_msg)

@@ -18,14 +18,16 @@ async def add_calendar_event(
     end_time: str,
     description: str = "",
     category: str = "general",
-    reminder_minutes_before: int = 15
+    reminder_minutes_before: int = None
 ) -> Dict[str, Any]:
     """Create a calendar event with default reminder settings."""
-    cat_lower = (category or "").lower()
-    if any(k in cat_lower for k in ["medicamento", "pastilla", "remimed"]):
-        reminder_minutes_before = 0
-    elif any(k in cat_lower for k in ["reunion", "reunión", "cita"]):
-        reminder_minutes_before = 30
+    try:
+        from backend.reminder_rules import get_default_reminder_minutes
+    except ModuleNotFoundError:
+        from reminder_rules import get_default_reminder_minutes
+
+    if reminder_minutes_before is None:
+        reminder_minutes_before = get_default_reminder_minutes(category)
 
     event_data = {
         "telegram_id": telegram_id,
@@ -180,7 +182,8 @@ TOOL_DECLARATIONS = [
                 "description": {"type": "string", "description": "Descripción adicional opcional"},
                 "start_time": {"type": "string", "description": "Fecha y hora de inicio en ISO 8601 UTC (ej: '2026-07-28T15:00:00Z')"},
                 "end_time": {"type": "string", "description": "Fecha y hora de fin en ISO 8601 UTC (ej: '2026-07-28T16:00:00Z')"},
-                "category": {"type": "string", "description": "Categoría: trabajo, personal, medicamento, cita, evento, general", "enum": ["trabajo", "personal", "medicamento", "cita", "evento", "general"]}
+                "category": {"type": "string", "description": "Categoría: trabajo, personal, medicamento, cita, reunion, evento, general", "enum": ["trabajo", "personal", "medicamento", "cita", "reunion", "evento", "general"]},
+                "reminder_minutes_before": {"type": "integer", "description": "Minutos antes para enviar notificación por Telegram (0 = hora exacta, 15, 30, 60)"}
             },
             "required": ["title", "start_time", "end_time"]
         }

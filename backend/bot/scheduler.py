@@ -14,33 +14,14 @@ except ModuleNotFoundError:
     from config import settings
     from database import db_service
 
+try:
+    from backend.reminder_rules import get_default_reminder_minutes, REMINDER_MESSAGES
+except ModuleNotFoundError:
+    from reminder_rules import get_default_reminder_minutes, REMINDER_MESSAGES
+
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
-
-DEFAULT_REMINDER = {
-    "reunion": 30,
-    "evento": 30,
-    "cita": 30,
-    "medicamento": 0,
-    "pastilla": 0,
-}
-
-REMINDER_MESSAGES = {
-    0: "⏰ <b>RECORDATORIO:</b> ¡<b>{title}</b> es AHORA ({time} hs)! 💊",
-    15: "⏰ <b>RECORDATORIO:</b> <b>{title}</b> empieza en 15 minutos ({time} hs). 🔔",
-    30: "⏰ <b>RECORDATORIO:</b> <b>{title}</b> empieza en 30 minutos ({time} hs). 🔔",
-    60: "⏰ <b>RECORDATORIO:</b> <b>{title}</b> empieza en 1 hora ({time} hs). 🔔",
-    None: "⏰ <b>RECORDATORIO:</b> <b>{title}</b> empieza pronto ({time} hs). 🔔",
-}
-
-
-def _get_reminder_minutes(category: str) -> int:
-    cat_lower = (category or "").lower()
-    for key, val in DEFAULT_REMINDER.items():
-        if key in cat_lower:
-            return val
-    return 15
 
 
 async def _send_telegram_message(telegram_id: int, text: str):
@@ -125,7 +106,7 @@ async def poll_reminders():
 
             reminder_min = event.get("reminder_minutes_before")
             if reminder_min is None:
-                reminder_min = _get_reminder_minutes(event.get("category", ""))
+                reminder_min = get_default_reminder_minutes(event.get("category", ""))
 
             # Convert time for display to local time
             start_local = start_dt.astimezone(arg_tz)
