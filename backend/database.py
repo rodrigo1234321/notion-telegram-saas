@@ -307,7 +307,24 @@ class SupabaseService:
                 res = self.client.table("financial_records").select("*").eq("telegram_id", telegram_id).execute()
                 return res.data or []
             except Exception:
-                pass
+                try:
+                    res = self.client.table("ai_memories").select("*").eq("telegram_id", telegram_id).eq("category", "Finanzas").execute()
+                    if res.data:
+                        records = []
+                        for m in res.data:
+                            val = m.get("fact_value", "")
+                            # Parse amount and desc from fact_value string if available
+                            records.append({
+                                "id": str(m.get("id")),
+                                "type": "expense",
+                                "amount": 0.0,
+                                "category": m.get("fact_key", "General"),
+                                "description": val,
+                                "record_date": m.get("created_at", "")[:10]
+                            })
+                        return records
+                except Exception:
+                    pass
         return [f for f in IN_MEMORY_DB["financial_records"] if f.get("telegram_id") == telegram_id]
 
     async def add_finance(self, finance_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -317,8 +334,20 @@ class SupabaseService:
             try:
                 res = self.client.table("financial_records").insert(finance_data).execute()
                 return res.data[0] if res.data else finance_data
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"[add_finance] financial_records insert failed ({e}), saving to ai_memories")
+                try:
+                    mem_data = {
+                        "telegram_id": finance_data["telegram_id"],
+                        "category": "Finanzas",
+                        "fact_key": finance_data.get("category", "Gasto"),
+                        "fact_value": f"${finance_data.get('amount', 0)} - {finance_data.get('description', '')} ({finance_data.get('record_date', '')})"
+                    }
+                    self.client.table("ai_memories").insert(mem_data).execute()
+                    return finance_data
+                except Exception as ex2:
+                    logging.getLogger(__name__).error(f"[add_finance] ai_memories insert failed: {ex2}")
         import uuid
         finance_data["id"] = finance_data.get("id") or str(uuid.uuid4())
         IN_MEMORY_DB["financial_records"].append(finance_data)
