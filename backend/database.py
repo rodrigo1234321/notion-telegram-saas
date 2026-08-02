@@ -310,17 +310,25 @@ class SupabaseService:
                 try:
                     res = self.client.table("ai_memories").select("*").eq("telegram_id", telegram_id).eq("category", "Finanzas").execute()
                     if res.data:
+                        import re
                         records = []
                         for m in res.data:
                             val = m.get("fact_value", "")
-                            # Parse amount and desc from fact_value string if available
+                            # Parse amount from "$9000.0 - ..."
+                            amt_match = re.search(r'\$(\d+(?:\.\d+)?)', val)
+                            amt = float(amt_match.group(1)) if amt_match else 0.0
+                            
+                            # Parse date from "... (2026-08-01)"
+                            date_match = re.search(r'\((\d{4}-\d{2}-\d{2})\)', val)
+                            rec_date = date_match.group(1) if date_match else m.get("created_at", "")[:10]
+                            
                             records.append({
                                 "id": str(m.get("id")),
                                 "type": "expense",
-                                "amount": 0.0,
+                                "amount": amt,
                                 "category": m.get("fact_key", "General"),
                                 "description": val,
-                                "record_date": m.get("created_at", "")[:10]
+                                "record_date": rec_date
                             })
                         return records
                 except Exception:
