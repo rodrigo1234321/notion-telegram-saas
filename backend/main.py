@@ -117,6 +117,40 @@ async def bot_debug():
     return status_info
 
 
+@app.get("/bot/scheduler-debug")
+async def scheduler_debug():
+    """Debug endpoint to check scheduler status and pending reminders."""
+    from bot.scheduler import scheduler as apscheduler_instance
+    try:
+        from backend.database import db_service
+    except ModuleNotFoundError:
+        from database import db_service
+    
+    pending = []
+    try:
+        events = await db_service.get_pending_reminders()
+        pending = [{"id": e.get("id"), "title": e.get("title"), "start_time": e.get("start_time"), "reminder_minutes_before": e.get("reminder_minutes_before"), "reminder_sent": e.get("reminder_sent")} for e in events]
+    except Exception as ex:
+        pending = [{"error": str(ex)}]
+    
+    # Get all events count
+    all_events_count = 0
+    try:
+        if db_service.has_supabase:
+            res = db_service.client.table("calendar_events").select("id", count="exact").execute()
+            all_events_count = res.count if hasattr(res, 'count') and res.count else len(res.data or [])
+    except Exception:
+        pass
+    
+    return {
+        "scheduler_running": apscheduler_instance.running if apscheduler_instance else False,
+        "scheduler_jobs": [str(j) for j in apscheduler_instance.get_jobs()] if apscheduler_instance else [],
+        "total_events_in_db": all_events_count,
+        "pending_reminders": pending,
+        "sent_reminder_ids_cache": list(db_service._sent_reminder_ids)[:20]
+    }
+
+
 @app.post("/bot/webhook")
 async def telegram_webhook(request: Request):
     bot_app = get_bot_app()

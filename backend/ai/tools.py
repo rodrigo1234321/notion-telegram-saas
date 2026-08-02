@@ -144,9 +144,9 @@ async def save_wiki_note(
 
 async def get_weather_forecast(
     telegram_id: int = None,
-    city: str = "Buenos Aires",
-    latitude: float = -34.6037,
-    longitude: float = -58.3816
+    city: str = "Mar del Plata",
+    latitude: float = -38.0055,
+    longitude: float = -57.5426
 ) -> Dict[str, Any]:
     """Get current weather forecast using Open-Meteo API."""
     try:

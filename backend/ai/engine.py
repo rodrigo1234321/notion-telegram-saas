@@ -221,7 +221,9 @@ class GeminiAIEngine:
             "start_time": start.astimezone(ZoneInfo("UTC")).isoformat(),
             "end_time": end.astimezone(ZoneInfo("UTC")).isoformat(),
             "category": "general",
-            "is_all_day": False
+            "is_all_day": False,
+            "reminder_minutes_before": 15,
+            "reminder_sent": False
         }
         result = await db_service.add_event(event)
         return f"📅 Evento creado: **{result.get('title', 'Evento')}** para el {start.strftime('%d/%m a las %H:%M')}."

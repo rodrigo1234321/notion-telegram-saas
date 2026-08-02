@@ -99,12 +99,14 @@ async def run_cleanup_job():
 
 async def poll_reminders():
     """Poll database and in-memory events for pending reminders every minute."""
-    logger.info("[Scheduler] Polling calendar reminders...")
     now_utc = datetime.now(timezone.utc)
     arg_tz = ZoneInfo("America/Argentina/Buenos_Aires")
+    now_local = now_utc.astimezone(arg_tz)
+    logger.info(f"[Scheduler] Polling reminders at {now_local.strftime('%H:%M:%S')} AR / {now_utc.strftime('%H:%M:%S')} UTC")
 
     try:
         events = await db_service.get_pending_reminders()
+        logger.info(f"[Scheduler] Found {len(events)} pending reminder(s)")
         if not events:
             return
 

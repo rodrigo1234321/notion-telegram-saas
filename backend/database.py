@@ -185,9 +185,9 @@ class SupabaseService:
                 return
 
     async def cleanup_old_events(self) -> int:
-        """Deletes events that passed more than 24 hours ago."""
+        """Deletes events that passed more than 7 days ago."""
         now = datetime.now(timezone.utc)
-        cutoff = (now - timedelta(hours=24)).isoformat()
+        cutoff = (now - timedelta(days=7)).isoformat()
         deleted_count = 0
 
         if self.has_supabase:
