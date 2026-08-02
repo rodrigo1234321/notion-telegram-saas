@@ -174,20 +174,20 @@ class GeminiAIEngine:
         msg = user_message.lower()
         
         try:
-            # 1. Notes / Wiki / Anotar
-            if any(kw in msg for kw in ["anotá", "anota", "anótame", "anotame", "guarda", "guardá", "nota", "medida", "medidas", "recordá", "recuerda", "memoria", "bloc"]):
-                return await self._fallback_wiki(telegram_id, user_message)
-
-            # 2. Calendar events / Recordatorios con hora / Pastillas
-            elif any(kw in msg for kw in ["reunión", "reunion", "agendar", "agendame", "agendá", "evento", "cita", "recordatorio", "programar", "pastilla", "medicamento", "a las", "hora"]):
-                return await self._fallback_calendar(telegram_id, user_message)
-            
-            # 3. Finance / Gastos
-            elif any(kw in msg for kw in ["gasté", "gaste", "pagué", "pague", "ingreso", "cobré", "cobre", "compré", "compre", "pagó", "pago", "$", "pesos", "dólares", "dolares"]):
+            # 1. Finance / Gastos (Check before calendar to catch 'registrar gasto de 9000')
+            if any(kw in msg for kw in ["gasto", "gastos", "gasté", "gaste", "pagué", "pague", "ingreso", "cobré", "cobre", "compré", "compre", "pagó", "pago", "$", "pesos", "dólares", "dolares", "bar", "restaurante", "supermercado"]):
                 return await self._fallback_finance(telegram_id, user_message)
 
+            # 2. Notes / Wiki / Anotar
+            elif any(kw in msg for kw in ["anotá", "anota", "anótame", "anotame", "guarda", "guardá", "nota", "medida", "medidas", "recordá", "recuerda", "memoria", "bloc"]):
+                return await self._fallback_wiki(telegram_id, user_message)
+
+            # 3. Calendar events / Recordatorios con hora / Pastillas
+            elif any(kw in msg for kw in ["reunión", "reunion", "agendar", "agendame", "agendá", "evento", "cita", "recordatorio", "programar", "pastilla", "medicamento", "a las"]):
+                return await self._fallback_calendar(telegram_id, user_message)
+
             # 4. Kanban tasks
-            elif any(kw in msg for kw in ["tarea", "kanban", "pendiente", "comprar", "hacer", "añadir"]):
+            elif any(kw in msg for kw in ["tarea", "kanban", "pendiente", "hacer", "añadir"]):
                 return await self._fallback_kanban(telegram_id, user_message)
             
             # 5. Habits
@@ -198,9 +198,9 @@ class GeminiAIEngine:
             elif any(kw in msg for kw in ["clave", "contraseña", "password", "pin", "bóveda", "boveda", "vault"]):
                 return await self._fallback_password(telegram_id, user_message)
 
-            # If user mentions any action verb or time, force calendar/note fallback instead of generic message
+            # If user mentions any digit or long phrase, default to notes instead of calendar to prevent accidental fake events
             elif any(char.isdigit() for char in msg) or len(msg.split()) > 3:
-                return await self._fallback_calendar(telegram_id, user_message)
+                return await self._fallback_wiki(telegram_id, user_message)
             
             return ("Entendido. Soy tu asistente de productividad en Telegram. "
                    "Puedo ayudarte a agendar eventos, crear tareas, registrar gastos, "
@@ -323,21 +323,57 @@ class GeminiAIEngine:
         return f"✅ Tarea agregada al Kanban: **{result.get('title', 'Tarea')}**."
 
     async def _fallback_finance(self, telegram_id: int, user_message: str) -> str:
-        """Basic finance fallback."""
+        """Smart finance fallback — parse amount, category, and date (ayer, hoy)."""
         import re
-        amounts = re.findall(r'[\d,]+\.?\d*', user_message.replace(',', ''))
-        amount = float(amounts[0]) if amounts else 25.0
-        
+        from datetime import datetime, timedelta
+
+        msg_lower = user_message.lower()
+
+        # 1. Parse date: "ayer", "hoy"
+        rec_date = datetime.now().date()
+        if "ayer" in msg_lower:
+            rec_date = rec_date - timedelta(days=1)
+        elif "anteayer" in msg_lower:
+            rec_date = rec_date - timedelta(days=2)
+
+        # 2. Parse type: income vs expense
+        rec_type = "income" if any(k in msg_lower for k in ["ingreso", "cobré", "cobre", "gané", "gane"]) else "expense"
+
+        # 3. Parse amount: find all numeric values
+        amounts = re.findall(r'\b\d+(?:[\.,]\d+)?\b', user_message.replace('$', ''))
+        amount = 0.0
+        if amounts:
+            # Pick the most probable amount (usually the largest number if year is present)
+            nums = [float(a.replace(',', '.')) for a in amounts]
+            # Exclude numbers that look like dates/years (e.g. 2026)
+            filtered = [n for n in nums if n != 2026]
+            amount = filtered[0] if filtered else nums[0]
+
+        # 4. Infer Category
+        category = "Ocio & Salidas"
+        if any(k in msg_lower for k in ["bar", "cerveza", "trago", "restaurante", "cena", "almuerzo", "café", "cafe"]):
+            category = "Ocio & Salidas"
+        elif any(k in msg_lower for k in ["super", "supermercado", "comida", "almacen", "almacén"]):
+            category = "Alimentación"
+        elif any(k in msg_lower for k in ["nafta", "combustible", "uber", "taxi", "colectivo", "peaje"]):
+            category = "Transporte"
+        elif any(k in msg_lower for k in ["luz", "gas", "agua", "internet", "alquiler"]):
+            category = "Servicios"
+
+        # 5. Build description
+        desc = user_message
+
         record = {
             "telegram_id": telegram_id,
-            "type": "expense",
+            "type": rec_type,
             "amount": amount,
-            "category": "General",
-            "description": user_message,
-            "record_date": datetime.now().date().isoformat()
+            "category": category,
+            "description": desc,
+            "record_date": rec_date.isoformat()
         }
         result = await db_service.add_finance(record)
-        return f"💰 Gasto registrado: **${amount}** en *{record['category']}*."
+        date_display = "ayer" if "ayer" in msg_lower else rec_date.strftime("%d/%m")
+        return f"💰 Gasto registrado con éxito: **${amount:.0f}** en categoría *{category}* ({date_display})."
 
     async def _fallback_habit(self, telegram_id: int, user_message: str) -> str:
         """Basic habit fallback."""
