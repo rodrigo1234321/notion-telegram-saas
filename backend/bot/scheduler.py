@@ -141,7 +141,6 @@ async def poll_reminders():
     except Exception as e:
         logger.error(f"[Scheduler] Error polling reminders: {e}")
 
-
 def start_scheduler():
     """Start APScheduler with reminder polling and cleanup jobs."""
     try:
@@ -150,6 +149,21 @@ def start_scheduler():
             scheduler.add_job(run_cleanup_job, IntervalTrigger(hours=1), id="cleanup_old_events", replace_existing=True)
             scheduler.start()
             logger.info("[Scheduler] APScheduler started successfully — polling every 1 minute & cleanup hourly")
+            logger.info(f"[Scheduler] Jobs registered: {[str(j) for j in scheduler.get_jobs()]}")
+        else:
+            logger.info("[Scheduler] APScheduler already running, skipping start.")
     except Exception as e:
-        logger.warning(f"[Scheduler] APScheduler start notice: {e}")
+        logger.error(f"[Scheduler] CRITICAL: APScheduler failed to start: {e}", exc_info=True)
+        # Retry with a fresh scheduler instance
+        try:
+            import asyncio
+            new_scheduler = AsyncIOScheduler()
+            new_scheduler.add_job(poll_reminders, IntervalTrigger(minutes=1), id="reminder_poll", replace_existing=True)
+            new_scheduler.add_job(run_cleanup_job, IntervalTrigger(hours=1), id="cleanup_old_events", replace_existing=True)
+            new_scheduler.start()
+            # Replace module-level scheduler reference
+            globals()['scheduler'] = new_scheduler
+            logger.info("[Scheduler] APScheduler recovery successful with new instance!")
+        except Exception as e2:
+            logger.error(f"[Scheduler] CRITICAL: Recovery also failed: {e2}", exc_info=True)
 

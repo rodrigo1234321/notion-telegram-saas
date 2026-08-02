@@ -120,7 +120,10 @@ async def bot_debug():
 @app.get("/bot/scheduler-debug")
 async def scheduler_debug():
     """Debug endpoint to check scheduler status and pending reminders."""
-    from bot.scheduler import scheduler as apscheduler_instance
+    try:
+        from backend.bot.scheduler import scheduler as apscheduler_instance
+    except ModuleNotFoundError:
+        from bot.scheduler import scheduler as apscheduler_instance
     try:
         from backend.database import db_service
     except ModuleNotFoundError:
@@ -149,6 +152,32 @@ async def scheduler_debug():
         "pending_reminders": pending,
         "sent_reminder_ids_cache": list(db_service._sent_reminder_ids)[:20]
     }
+
+
+@app.post("/bot/scheduler-restart")
+async def scheduler_restart():
+    """Force restart the scheduler if it's not running."""
+    start_scheduler()
+    try:
+        from backend.bot.scheduler import scheduler as apscheduler_instance
+    except ModuleNotFoundError:
+        from bot.scheduler import scheduler as apscheduler_instance
+    return {
+        "status": "restarted",
+        "scheduler_running": apscheduler_instance.running if apscheduler_instance else False,
+        "jobs": [str(j) for j in apscheduler_instance.get_jobs()] if apscheduler_instance else []
+    }
+
+
+@app.post("/bot/trigger-reminders")
+async def trigger_reminders():
+    """Manually trigger a reminder poll cycle (for testing)."""
+    try:
+        from backend.bot.scheduler import poll_reminders
+    except ModuleNotFoundError:
+        from bot.scheduler import poll_reminders
+    await poll_reminders()
+    return {"status": "poll_executed"}
 
 
 @app.post("/bot/webhook")
