@@ -10,12 +10,14 @@ router = APIRouter(prefix="/wiki", tags=["wiki"])
 
 class WikiNoteCreate(BaseModel):
     title: str
-    content_json: dict
+    content: Optional[str] = ""
+    content_json: Optional[dict] = None
     tags: Optional[List[str]] = []
 
 
 class WikiNoteUpdate(BaseModel):
     title: Optional[str] = None
+    content: Optional[str] = None
     content_json: Optional[dict] = None
     tags: Optional[List[str]] = None
 
@@ -23,7 +25,7 @@ class WikiNoteUpdate(BaseModel):
 @router.get("/notes")
 async def get_notes(user: dict = Depends(get_current_telegram_user)):
     notes = await db_service.get_user_wiki(user["telegram_id"])
-    return notes
+    return {"status": "success", "data": notes}
 
 
 @router.post("/notes")
@@ -31,7 +33,7 @@ async def create_note(note: WikiNoteCreate, user: dict = Depends(get_current_tel
     note_data = note.model_dump()
     note_data["telegram_id"] = user["telegram_id"]
     result = await db_service.add_wiki(note_data)
-    return result
+    return {"status": "success", "data": result}
 
 
 @router.patch("/notes/{note_id}")

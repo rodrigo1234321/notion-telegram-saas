@@ -16,6 +16,7 @@ interface FinanceRecord {
   category: string;
   description: string;
   record_date?: string;
+  date?: string;
   created_at?: string;
 }
 
@@ -66,14 +67,16 @@ export default function FinancePage() {
     // 2. Sync with API
     apiClient.get('/api/finance/records')
       .then(res => {
-        if (res.data?.data && res.data.data.length > 0) {
-          const apiRecords = res.data.data.map((r: any) => ({
-            id: r.id || String(Math.random()),
-            type: r.type || 'expense',
+        const rawList = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        if (Array.isArray(rawList)) {
+          const apiRecords = rawList.map((r: any) => ({
+            id: r.id ? String(r.id) : String(Math.random()),
+            type: (r.type === 'income' ? 'income' : 'expense') as 'income' | 'expense',
             amount: Number(r.amount) || 0,
             category: r.category || 'General',
             description: r.description || '',
-            record_date: r.record_date || r.created_at || new Date().toISOString()
+            record_date: r.record_date || r.date || r.created_at || new Date().toISOString(),
+            date: r.date || r.record_date || r.created_at || new Date().toISOString()
           }));
           setRecords(apiRecords);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(apiRecords));
@@ -103,7 +106,7 @@ export default function FinancePage() {
 
   // Filter records for the currently selected month
   const monthlyRecords = records.filter(r => {
-    let rawDate = r.record_date || r.created_at;
+    let rawDate = r.record_date || r.date || r.created_at;
     if (!rawDate && r.id && !isNaN(Number(r.id))) {
       rawDate = new Date(Number(r.id)).toISOString();
     }
@@ -138,13 +141,15 @@ export default function FinancePage() {
     const finalCategory = category === 'CUSTOM_OPTION' ? (customCategory.trim() || 'Personalizada') : category;
     const recordDateIso = new Date(selectedYear, selectedMonth, new Date().getDate()).toISOString().split('T')[0];
 
+    const tempId = Date.now().toString();
     const newRecord: FinanceRecord = {
-      id: Date.now().toString(),
+      id: tempId,
       type,
       amount: numAmount,
       category: finalCategory,
       description,
-      record_date: recordDateIso
+      record_date: recordDateIso,
+      date: recordDateIso
     };
 
     const updated = [newRecord, ...records];
@@ -161,7 +166,17 @@ export default function FinancePage() {
       amount: numAmount,
       category: finalCategory,
       description,
-      record_date: recordDateIso
+      record_date: recordDateIso,
+      date: recordDateIso
+    }).then(res => {
+      const savedData = res.data?.data || (res.data && res.data.id ? res.data : null);
+      if (savedData && savedData.id) {
+        setRecords(prev => {
+          const newList = prev.map(r => r.id === tempId ? { ...r, id: String(savedData.id) } : r);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
+          return newList;
+        });
+      }
     }).catch(() => {});
   };
 

@@ -40,12 +40,13 @@ export default function WikiPage() {
     // 2. Sync with API
     apiClient.get('/api/wiki/notes')
       .then(res => {
-        if (res.data?.data && res.data.data.length > 0) {
-          const apiNotes = res.data.data.map((n: any) => ({
+        const rawNotes = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        if (Array.isArray(rawNotes) && rawNotes.length > 0) {
+          const apiNotes = rawNotes.map((n: any) => ({
             id: n.id || String(Math.random()),
             title: n.title,
             tags: n.tags || ['general'],
-            content: n.content_json?.content?.[0]?.text || n.content || 'Nota sin contenido.',
+            content: n.content || n.content_json?.content?.[0]?.text || 'Nota sin contenido.',
             updatedAt: 'Reciente'
           }));
           setNotes(apiNotes);
@@ -88,6 +89,7 @@ export default function WikiPage() {
 
     apiClient.post('/api/wiki/notes', {
       title,
+      content,
       tags: parsedTags,
       content_json: { type: 'doc', content: [{ type: 'paragraph', text: content }] }
     }).catch(() => {});
